@@ -1,0 +1,33 @@
+{
+  "name": "electron-nextjs-boilerplate",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A desktop boilerplate powered by Electron and Next.js.",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "node ./scripts/run-electron.js development",
+    "build": "node ./node_modules/next/dist/bin/next build",
+    "start": "npm run build && node ./scripts/run-electron.js production",
+    "typecheck": "node ./node_modules/typescript/bin/tsc --noEmit"
+  },
+  "keywords": [
+    "electron",
+    "nextjs",
+    "boilerplate",
+    "desktop"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "next": "^16.2.4",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "electron": "^41.3.0",
+    "typescript": "^6.0.3"
+  }
+}
