@@ -1,0 +1,952 @@
+{
+  "generatedAt": "2026-04-25T09:21:43.480Z",
+  "reportPath": "/Custom/Extensions/CP",
+  "payload": {
+    "transportEncoding": "base64",
+    "originalLength": 25512,
+    "normalizedLength": 25512,
+    "decodedBytes": 19134,
+    "sha256": "dfed86fd3a7c7876a58ae4f492481a6b71dfbfcbd6fe91d5b2d2ba187876f0d6",
+    "format": "zip",
+    "isLikelyText": false,
+    "rootPayloadName": "CP"
+  },
+  "extraction": {
+    "warnings": [],
+    "extractedFiles": 27,
+    "extractedTextFiles": 20,
+    "extractedBinaryFiles": 2,
+    "extractedArchives": 5
+  },
+  "structure": {
+    "totalFiles": 27,
+    "totalFolders": 5,
+    "totalTextFiles": 20,
+    "totalBinaryFiles": 2,
+    "totalArchiveFiles": 5,
+    "topLevelFolders": [
+      "CP"
+    ],
+    "extensionCounts": {
+      ".meta": 5,
+      ".sec": 5,
+      ".cfg": 2,
+      ".png": 2,
+      ".rtf": 2,
+      ".xdm": 2,
+      ".xdmz": 2,
+      ".xdo": 2,
+      ".xdoz": 2,
+      ".xml": 2,
+      "(none)": 1
+    },
+    "largestFiles": [
+      {
+        "path": "CP",
+        "bytes": 19134,
+        "fileType": "archive"
+      },
+      {
+        "path": "CP/CUST_REP_RPT.xdoz/REP_en_US.rtf",
+        "bytes": 14565,
+        "fileType": "text"
+      },
+      {
+        "path": "CP/SHIP_MASTBOL_RPT.xdoz/REP_en_US.rtf",
+        "bytes": 9100,
+        "fileType": "text"
+      },
+      {
+        "path": "CP/CUST_REP_RPT.xdoz",
+        "bytes": 7494,
+        "fileType": "archive"
+      },
+      {
+        "path": "CP/SHIP_MASTBOL_RPT.xdoz",
+        "bytes": 6327,
+        "fileType": "archive"
+      },
+      {
+        "path": "CP/CUST_REP_DM.xdmz/_datamodel.xdm",
+        "bytes": 4670,
+        "fileType": "text"
+      },
+      {
+        "path": "CP/SHIP_MASTBOL_DM.xdmz/_datamodel.xdm",
+        "bytes": 4085,
+        "fileType": "text"
+      },
+      {
+        "path": "CP/CUST_REP_DM.xdmz",
+        "bytes": 2740,
+        "fileType": "archive"
+      },
+      {
+        "path": "CP/SHIP_MASTBOL_DM.xdmz",
+        "bytes": 2491,
+        "fileType": "archive"
+      },
+      {
+        "path": "CP/CUST_REP_RPT.xdoz/REP.rtf.png",
+        "bytes": 2189,
+        "fileType": "binary"
+      },
+      {
+        "path": "CP/CUST_REP_RPT.xdoz/_report.xdo",
+        "bytes": 1490,
+        "fileType": "text"
+      },
+      {
+        "path": "CP/SHIP_MASTBOL_RPT.xdoz/_report.xdo",
+        "bytes": 1490,
+        "fileType": "text"
+      },
+      {
+        "path": "CP/SHIP_MASTBOL_RPT.xdoz/REP.rtf.png",
+        "bytes": 1308,
+        "fileType": "binary"
+      },
+      {
+        "path": "CP/SHIP_MASTBOL_RPT.xdoz/~security.sec",
+        "bytes": 989,
+        "fileType": "text"
+      },
+      {
+        "path": "CP/SHIP_MASTBOL_DM.xdmz/~security.sec",
+        "bytes": 986,
+        "fileType": "text"
+      },
+      {
+        "path": "CP/CUST_REP_RPT.xdoz/~security.sec",
+        "bytes": 977,
+        "fileType": "text"
+      },
+      {
+        "path": "CP/CUST_REP_DM.xdmz/~security.sec",
+        "bytes": 974,
+        "fileType": "text"
+      },
+      {
+        "path": "CP/~security.sec",
+        "bytes": 926,
+        "fileType": "text"
+      },
+      {
+        "path": "CP/SHIP_MASTBOL_RPT.xdoz/~metadata.meta",
+        "bytes": 778,
+        "fileType": "text"
+      },
+      {
+        "path": "CP/CUST_REP_RPT.xdoz/~metadata.meta",
+        "bytes": 770,
+        "fileType": "text"
+      },
+      {
+        "path": "CP/CUST_REP_DM.xdmz/sample.xml",
+        "bytes": 616,
+        "fileType": "text"
+      },
+      {
+        "path": "CP/SHIP_MASTBOL_DM.xdmz/~metadata.meta",
+        "bytes": 566,
+        "fileType": "text"
+      },
+      {
+        "path": "CP/CUST_REP_DM.xdmz/~metadata.meta",
+        "bytes": 558,
+        "fileType": "text"
+      },
+      {
+        "path": "CP/~metadata.meta",
+        "bytes": 425,
+        "fileType": "text"
+      },
+      {
+        "path": "CP/SHIP_MASTBOL_DM.xdmz/sample.xml",
+        "bytes": 314,
+        "fileType": "text"
+      },
+      {
+        "path": "CP/CUST_REP_RPT.xdoz/xdo.cfg",
+        "bytes": 191,
+        "fileType": "text"
+      },
+      {
+        "path": "CP/SHIP_MASTBOL_RPT.xdoz/xdo.cfg",
+        "bytes": 120,
+        "fileType": "text"
+      }
+    ],
+    "files": [
+      {
+        "path": "CP",
+        "extension": "",
+        "fileType": "archive",
+        "bytes": 19134,
+        "sha256": "dfed86fd3a7c7876a58ae4f492481a6b71dfbfcbd6fe91d5b2d2ba187876f0d6",
+        "archiveDepth": 0,
+        "parentArchivePath": null
+      },
+      {
+        "path": "CP/~metadata.meta",
+        "extension": ".meta",
+        "fileType": "text",
+        "bytes": 425,
+        "sha256": "2ec4f68ae3a8b0b40e62bf2bb9460b456b287d60668b2ab6f56b3769e1e75b27",
+        "archiveDepth": 1,
+        "parentArchivePath": "CP",
+        "textPreview": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\" ?>\n<metadata>\n  <entries>\n    <entry>\n      <key><![CDATA[DESCRIPTION]]></key>\n      <value><![CDATA[]]></value>\n    </entry>\n    <entry>\n      <key><![CDATA[propertyMap]]></key>\n      <value><![CDATA[1]]></value>\n    </entry>\n    <entry>\n      <key><![CDATA[path]]></key>\n      <value><![CDATA[%2FCustom%2FExtensions%2FCP]]></value>\n    </entry>\n  </entries>\n</metadata>",
+        "lines": 17,
+        "characters": 425
+      },
+      {
+        "path": "CP/~security.sec",
+        "extension": ".sec",
+        "fileType": "text",
+        "bytes": 926,
+        "sha256": "1f075c6b1cab2eaff42210e6cd8c053922d2c57f8aed6a24ec067d239f01c5e3",
+        "archiveDepth": 1,
+        "parentArchivePath": "CP",
+        "textPreview": "<?xml version = '1.0' encoding = 'UTF-8'?>\n<security>\n   <policy rolename=\"BIAuthor\" roleGUID=\"BIAuthor\" roleDisplayName=\"BI Author Role\">\n      <folderPermission>\n         <allow path=\"/Custom/Extensions/CP\" recursive=\"false\" permissions=\"oracle.bi.publisher.fullControl,;&#x9; \"/>\n      </folderPermission>\n   </policy>\n   <policy rolename=\"BIAdministrator\" roleGUID=\"BIAdministrator\" roleDisplayName=\"BI Administrator Role\">\n      <folderPermission>\n         <allow path=\"/Custom/Extensions/CP\" re",
+        "lines": 19,
+        "characters": 926
+      },
+      {
+        "path": "CP/CUST_REP_DM.xdmz",
+        "extension": ".xdmz",
+        "fileType": "archive",
+        "bytes": 2740,
+        "sha256": "0e00972be68aaec1136b54d74d0b21574ace410116e4e1b1a7c8361eb8381815",
+        "archiveDepth": 1,
+        "parentArchivePath": "CP"
+      },
+      {
+        "path": "CP/CUST_REP_DM.xdmz/_datamodel.xdm",
+        "extension": ".xdm",
+        "fileType": "text",
+        "bytes": 4670,
+        "sha256": "165b3fce54d10cc1a1d1f579b70a805bf236c945a7f71a090d17f2eb899d24f9",
+        "archiveDepth": 2,
+        "parentArchivePath": "CP/CUST_REP_DM.xdmz",
+        "textPreview": "<?xml version = '1.0' encoding = 'utf-8'?>\n<dataModel xmlns=\"http://xmlns.oracle.com/oxp/xmlp\" version=\"2.1\" xmlns:xdm=\"http://xmlns.oracle.com/oxp/xmlp\" xmlns:xsd=\"http://wwww.w3.org/2001/XMLSchema\" defaultDataSourceRef=\"Oracle BI EE\">\n   <dataProperties>\n      <property name=\"include_parameters\" value=\"true\"/>\n      <property name=\"include_null_Element\" value=\"true\"/>\n      <property name=\"include_rowsettag\" value=\"false\"/>\n      <property name=\"exclude_tags_for_lob\" value=\"false\"/>\n      <pro",
+        "lines": 104,
+        "characters": 4670
+      },
+      {
+        "path": "CP/CUST_REP_DM.xdmz/~metadata.meta",
+        "extension": ".meta",
+        "fileType": "text",
+        "bytes": 558,
+        "sha256": "ce4315b152227a35bf0eabbcc54c9efd29242cd9db868fae0a979284f962c650",
+        "archiveDepth": 2,
+        "parentArchivePath": "CP/CUST_REP_DM.xdmz",
+        "textPreview": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\" ?>\n<metadata>\n  <entries>\n    <entry>\n      <key><![CDATA[bip:DisplayName]]></key>\n      <value><![CDATA[CUST_REP_DM]]></value>\n    </entry>\n    <entry>\n      <key><![CDATA[DESCRIPTION]]></key>\n      <value><![CDATA[]]></value>\n    </entry>\n    <entry>\n      <key><![CDATA[propertyMap]]></key>\n      <value><![CDATA[1]]></value>\n    </entry>\n    <entry>\n      <key><![CDATA[path]]></key>\n      <value><![CDATA[%2FCustom%2FExtensions%2FCP%2FCUST_R",
+        "lines": 21,
+        "characters": 558
+      },
+      {
+        "path": "CP/CUST_REP_DM.xdmz/~security.sec",
+        "extension": ".sec",
+        "fileType": "text",
+        "bytes": 974,
+        "sha256": "b31a14a93991c5998e00a7f555f98b3992590427d32d1df414fca5c5f7da319a",
+        "archiveDepth": 2,
+        "parentArchivePath": "CP/CUST_REP_DM.xdmz",
+        "textPreview": "<?xml version = '1.0' encoding = 'UTF-8'?>\n<security>\n   <policy rolename=\"BIAuthor\" roleGUID=\"BIAuthor\" roleDisplayName=\"BI Author Role\">\n      <folderPermission>\n         <allow path=\"/Custom/Extensions/CP/CUST_REP_DM.xdm\" recursive=\"false\" permissions=\"oracle.bi.publisher.fullControl,;&#x9; \"/>\n      </folderPermission>\n   </policy>\n   <policy rolename=\"BIAdministrator\" roleGUID=\"BIAdministrator\" roleDisplayName=\"BI Administrator Role\">\n      <folderPermission>\n         <allow path=\"/Custom/E",
+        "lines": 19,
+        "characters": 974
+      },
+      {
+        "path": "CP/CUST_REP_DM.xdmz/sample.xml",
+        "extension": ".xml",
+        "fileType": "text",
+        "bytes": 616,
+        "sha256": "9b5188f6bb61070ac5916b4e631c31641536fdd2c3e8f65ab45165f157355ee4",
+        "archiveDepth": 2,
+        "parentArchivePath": "CP/CUST_REP_DM.xdmz",
+        "textPreview": "<?xml version = '1.0' encoding = 'utf-8'?>\n<!--Generated by Oracle Analytics Publisher -Dataengine, datamodel:_Custom_Extensions_CP_CUST_REP_DM_xdm -->\n<DATA_DS><P_EMAIL>dandu.suhas@oracle.com</P_EMAIL>\n<G_1>\n<ORG_PARTY_NAME>Loreal Global</ORG_PARTY_NAME><ORG_PARTY_NUMBER>1002</ORG_PARTY_NUMBER><ORG_PARTY_ID>300000002390237</ORG_PARTY_ID><CUST_ACCOUNT_ID>300000002390239</CUST_ACCOUNT_ID><PERSON_PARTY_ID>300000009973993</PERSON_PARTY_ID><PERSON_FIRST_NAME>Dummy</PERSON_FIRST_NAME><PERSON_LAST_NAM",
+        "lines": 8,
+        "characters": 616
+      },
+      {
+        "path": "CP/CUST_REP_RPT.xdoz",
+        "extension": ".xdoz",
+        "fileType": "archive",
+        "bytes": 7494,
+        "sha256": "62c132f129691943b3a4290f5d615540a83948a81c73034165d9acd47adea54c",
+        "archiveDepth": 1,
+        "parentArchivePath": "CP"
+      },
+      {
+        "path": "CP/CUST_REP_RPT.xdoz/_report.xdo",
+        "extension": ".xdo",
+        "fileType": "text",
+        "bytes": 1490,
+        "sha256": "e854e7135c0922331aa129e75ecca10bb5874cbbb41469a075c11a06d8132ebc",
+        "archiveDepth": 2,
+        "parentArchivePath": "CP/CUST_REP_RPT.xdoz",
+        "textPreview": "<?xml version = '1.0' encoding = 'utf-8'?>\n<report xmlns=\"http://xmlns.oracle.com/oxp/xmlp\" xmlns:xsd=\"http://wwww.w3.org/2001/XMLSchema\" version=\"2.0\" dataModel=\"true\" useBipParameters=\"true\" producerName=\"fin-financialCommon\" parameterVOName=\"\" parameterTaskFlow=\"\" customDataControl=\"\" cachePerUser=\"true\" cacheSmartRefresh=\"false\" cacheUserRefresh=\"false\">\n   <dataModel url=\"/Custom/Extensions/CP/CUST_REP_DM.xdm\"/>\n   <description/>\n   <property name=\"showControls\" value=\"true\"/>\n   <property ",
+        "lines": 24,
+        "characters": 1490
+      },
+      {
+        "path": "CP/CUST_REP_RPT.xdoz/~metadata.meta",
+        "extension": ".meta",
+        "fileType": "text",
+        "bytes": 770,
+        "sha256": "2c77ee69d9c0606a68c2c210d0974f20e6aec65e65083f46cd144f7b1942b4a6",
+        "archiveDepth": 2,
+        "parentArchivePath": "CP/CUST_REP_RPT.xdoz",
+        "textPreview": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\" ?>\n<metadata>\n  <entries>\n    <entry>\n      <key><![CDATA[bip:DisplayName]]></key>\n      <value><![CDATA[CUST_REP_RPT]]></value>\n    </entry>\n    <entry>\n      <key><![CDATA[DESCRIPTION]]></key>\n      <value><![CDATA[]]></value>\n    </entry>\n    <entry>\n      <key><![CDATA[ESS_JOB_PKG_NAME]]></key>\n      <value><![CDATA[]]></value>\n    </entry>\n    <entry>\n      <key><![CDATA[ESS_JOB_DEF_NAME]]></key>\n      <value><![CDATA[]]></value>\n    </e",
+        "lines": 29,
+        "characters": 770
+      },
+      {
+        "path": "CP/CUST_REP_RPT.xdoz/~security.sec",
+        "extension": ".sec",
+        "fileType": "text",
+        "bytes": 977,
+        "sha256": "623f86de152e3d4a7b988ac3609c101b024d0b22a4fe83bb798267d04701d32f",
+        "archiveDepth": 2,
+        "parentArchivePath": "CP/CUST_REP_RPT.xdoz",
+        "textPreview": "<?xml version = '1.0' encoding = 'UTF-8'?>\n<security>\n   <policy rolename=\"BIAuthor\" roleGUID=\"BIAuthor\" roleDisplayName=\"BI Author Role\">\n      <folderPermission>\n         <allow path=\"/Custom/Extensions/CP/CUST_REP_RPT.xdo\" recursive=\"false\" permissions=\"oracle.bi.publisher.fullControl,;&#x9; \"/>\n      </folderPermission>\n   </policy>\n   <policy rolename=\"BIAdministrator\" roleGUID=\"BIAdministrator\" roleDisplayName=\"BI Administrator Role\">\n      <folderPermission>\n         <allow path=\"/Custom/",
+        "lines": 19,
+        "characters": 977
+      },
+      {
+        "path": "CP/CUST_REP_RPT.xdoz/REP_en_US.rtf",
+        "extension": ".rtf",
+        "fileType": "text",
+        "bytes": 14565,
+        "sha256": "4649023482d176d0bc877a9e395b827d48083554891652bbafeaee8bf8834ffe",
+        "archiveDepth": 2,
+        "parentArchivePath": "CP/CUST_REP_RPT.xdoz",
+        "textPreview": "{\\rtf1\\ansi\\deff0 \n{\\fonttbl\n{\\f0 \\fArial Arial;}\n{\\f1 Times;}\n{\\f2 Courier New;}\n}\n{\\colortbl\n;\n\\red0\\green0\\blue0;\n\\red255\\green255\\blue255;\n\\red221\\green221\\blue221;\n\\red223\\green234\\blue243;\n}\n{\\info\n{\\doccomm Generated by Oracle Analytics Publisher}\n}\n\\formshade\\viewkind1\\viewbksp1\\uc1\\dntblnsbdb\n\\paperw12240\\paperh15840\\margt720\\margb720\\margl720\\margr720\n{\\header \\trowd\n\\trleft20\n\\clcbpat2\\clbrdrt\\brdrs\\brdrw10\\brdrcf3\\clbrdrb\\brdrs\\brdrw10\\brdrcf3\\clbrdrl\\brdrs\\brdrw10\\brdrcf3\\clbrdrr\\br",
+        "lines": 245,
+        "characters": 14321
+      },
+      {
+        "path": "CP/CUST_REP_RPT.xdoz/REP.rtf.png",
+        "extension": ".png",
+        "fileType": "binary",
+        "bytes": 2189,
+        "sha256": "f93c13c20a60d3da420040a17d0264472a85e9841d93a59ad9a04dfcf2d2dc73",
+        "archiveDepth": 2,
+        "parentArchivePath": "CP/CUST_REP_RPT.xdoz"
+      },
+      {
+        "path": "CP/CUST_REP_RPT.xdoz/xdo.cfg",
+        "extension": ".cfg",
+        "fileType": "text",
+        "bytes": 191,
+        "sha256": "192b22c448c6b31dab919215401ca0cd977b6f40dcfa52e93077861d7cddaf9b",
+        "archiveDepth": 2,
+        "parentArchivePath": "CP/CUST_REP_RPT.xdoz",
+        "textPreview": "<config version=\"1.0.0\" xmlns=\"http://xmlns.oracle.com/oxp/config/\">\n<properties>\n\t<property name=\"xdk-secure-io-mode\">true</property></properties>\n\t<fonts/>\n\n\t\n\n\t\n\n\t\n\n\t\n\n\t\n\n\t\n\n\t\n\n\t</config>\n",
+        "lines": 21,
+        "characters": 191
+      },
+      {
+        "path": "CP/SHIP_MASTBOL_DM.xdmz",
+        "extension": ".xdmz",
+        "fileType": "archive",
+        "bytes": 2491,
+        "sha256": "d2f0f58b169e39b7f44a27f5724284678b74f3a91854f7b67cce7f9412d1c909",
+        "archiveDepth": 1,
+        "parentArchivePath": "CP"
+      },
+      {
+        "path": "CP/SHIP_MASTBOL_DM.xdmz/_datamodel.xdm",
+        "extension": ".xdm",
+        "fileType": "text",
+        "bytes": 4085,
+        "sha256": "4dab0d8663e88189f020d4794b63e701cd2a31b8fe8137a00a5123b5d7ce069f",
+        "archiveDepth": 2,
+        "parentArchivePath": "CP/SHIP_MASTBOL_DM.xdmz",
+        "textPreview": "<?xml version = '1.0' encoding = 'utf-8'?>\n<dataModel xmlns=\"http://xmlns.oracle.com/oxp/xmlp\" version=\"2.1\" xmlns:xdm=\"http://xmlns.oracle.com/oxp/xmlp\" xmlns:xsd=\"http://wwww.w3.org/2001/XMLSchema\" defaultDataSourceRef=\"Oracle BI EE\">\n   <dataProperties>\n      <property name=\"include_parameters\" value=\"true\"/>\n      <property name=\"include_null_Element\" value=\"true\"/>\n      <property name=\"include_rowsettag\" value=\"false\"/>\n      <property name=\"exclude_tags_for_lob\" value=\"false\"/>\n      <pro",
+        "lines": 98,
+        "characters": 4085
+      },
+      {
+        "path": "CP/SHIP_MASTBOL_DM.xdmz/~metadata.meta",
+        "extension": ".meta",
+        "fileType": "text",
+        "bytes": 566,
+        "sha256": "b275e896d491c8476009938b5913642c260b4e6b640f093b72e1d34bb4fc68fb",
+        "archiveDepth": 2,
+        "parentArchivePath": "CP/SHIP_MASTBOL_DM.xdmz",
+        "textPreview": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\" ?>\n<metadata>\n  <entries>\n    <entry>\n      <key><![CDATA[bip:DisplayName]]></key>\n      <value><![CDATA[SHIP_MASTBOL_DM]]></value>\n    </entry>\n    <entry>\n      <key><![CDATA[DESCRIPTION]]></key>\n      <value><![CDATA[]]></value>\n    </entry>\n    <entry>\n      <key><![CDATA[propertyMap]]></key>\n      <value><![CDATA[1]]></value>\n    </entry>\n    <entry>\n      <key><![CDATA[path]]></key>\n      <value><![CDATA[%2FCustom%2FExtensions%2FCP%2FSH",
+        "lines": 21,
+        "characters": 566
+      },
+      {
+        "path": "CP/SHIP_MASTBOL_DM.xdmz/~security.sec",
+        "extension": ".sec",
+        "fileType": "text",
+        "bytes": 986,
+        "sha256": "714ce18730f4cd2567007de205430330a26da8276dc47f437797eb2970eb13be",
+        "archiveDepth": 2,
+        "parentArchivePath": "CP/SHIP_MASTBOL_DM.xdmz",
+        "textPreview": "<?xml version = '1.0' encoding = 'UTF-8'?>\n<security>\n   <policy rolename=\"BIAuthor\" roleGUID=\"BIAuthor\" roleDisplayName=\"BI Author Role\">\n      <folderPermission>\n         <allow path=\"/Custom/Extensions/CP/SHIP_MASTBOL_DM.xdm\" recursive=\"false\" permissions=\"oracle.bi.publisher.fullControl,;&#x9; \"/>\n      </folderPermission>\n   </policy>\n   <policy rolename=\"BIAdministrator\" roleGUID=\"BIAdministrator\" roleDisplayName=\"BI Administrator Role\">\n      <folderPermission>\n         <allow path=\"/Cust",
+        "lines": 19,
+        "characters": 986
+      },
+      {
+        "path": "CP/SHIP_MASTBOL_DM.xdmz/sample.xml",
+        "extension": ".xml",
+        "fileType": "text",
+        "bytes": 314,
+        "sha256": "b09a1a07a8393aa5c3bdcf9065c8f513bcbc35ed159da61fba90a68c0f391ef0",
+        "archiveDepth": 2,
+        "parentArchivePath": "CP/SHIP_MASTBOL_DM.xdmz",
+        "textPreview": "<?xml version = '1.0' encoding = 'utf-8'?>\n<!--Generated by Oracle Analytics Publisher -Dataengine, datamodel:_Custom_Extensions_CP_SHIP_MASTBOL_DM_xdm -->\n<DATA_DS><P_SO_NUM>10000153</P_SO_NUM>\n<G_1>\n<TONUMBER>20010</TONUMBER><SHIPMENTNUM>13002</SHIPMENTNUM><MASTERBOL>CMAEH25095628</MASTERBOL>\n</G_1>\n</DATA_DS>\n",
+        "lines": 8,
+        "characters": 314
+      },
+      {
+        "path": "CP/SHIP_MASTBOL_RPT.xdoz",
+        "extension": ".xdoz",
+        "fileType": "archive",
+        "bytes": 6327,
+        "sha256": "af000ff43bfca9b7661f58ce4f984451afd21897f1699d1aba31a4540a3991ba",
+        "archiveDepth": 1,
+        "parentArchivePath": "CP"
+      },
+      {
+        "path": "CP/SHIP_MASTBOL_RPT.xdoz/_report.xdo",
+        "extension": ".xdo",
+        "fileType": "text",
+        "bytes": 1490,
+        "sha256": "72dc392dda661b2bad78063843ac716de49cf0286453e78ca0b7c56a149ef45b",
+        "archiveDepth": 2,
+        "parentArchivePath": "CP/SHIP_MASTBOL_RPT.xdoz",
+        "textPreview": "<?xml version = '1.0' encoding = 'utf-8'?>\n<report xmlns=\"http://xmlns.oracle.com/oxp/xmlp\" xmlns:xsd=\"http://wwww.w3.org/2001/XMLSchema\" version=\"2.0\" dataModel=\"true\" useBipParameters=\"true\" producerName=\"fin-financialCommon\" parameterVOName=\"\" parameterTaskFlow=\"\" customDataControl=\"\" cachePerUser=\"true\" cacheSmartRefresh=\"false\" cacheUserRefresh=\"false\">\n   <dataModel url=\"/Custom/Extensions/CP/SHIP_MASTBOL_DM.xdm\"/>\n   <description/>\n   <property name=\"showControls\" value=\"true\"/>\n   <prope",
+        "lines": 24,
+        "characters": 1490
+      },
+      {
+        "path": "CP/SHIP_MASTBOL_RPT.xdoz/~metadata.meta",
+        "extension": ".meta",
+        "fileType": "text",
+        "bytes": 778,
+        "sha256": "65ee338a9ff6245a4e0070333f5270db513f3f646f9bbd4eb8afd9e24f3b514e",
+        "archiveDepth": 2,
+        "parentArchivePath": "CP/SHIP_MASTBOL_RPT.xdoz",
+        "textPreview": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\" ?>\n<metadata>\n  <entries>\n    <entry>\n      <key><![CDATA[bip:DisplayName]]></key>\n      <value><![CDATA[SHIP_MASTBOL_RPT]]></value>\n    </entry>\n    <entry>\n      <key><![CDATA[DESCRIPTION]]></key>\n      <value><![CDATA[]]></value>\n    </entry>\n    <entry>\n      <key><![CDATA[ESS_JOB_PKG_NAME]]></key>\n      <value><![CDATA[]]></value>\n    </entry>\n    <entry>\n      <key><![CDATA[ESS_JOB_DEF_NAME]]></key>\n      <value><![CDATA[]]></value>\n   ",
+        "lines": 29,
+        "characters": 778
+      },
+      {
+        "path": "CP/SHIP_MASTBOL_RPT.xdoz/~security.sec",
+        "extension": ".sec",
+        "fileType": "text",
+        "bytes": 989,
+        "sha256": "3d428e3ae712756b93bd20f7a7be2bd4be0c15ceffefd9507db932ee2a4e1daf",
+        "archiveDepth": 2,
+        "parentArchivePath": "CP/SHIP_MASTBOL_RPT.xdoz",
+        "textPreview": "<?xml version = '1.0' encoding = 'UTF-8'?>\n<security>\n   <policy rolename=\"BIAuthor\" roleGUID=\"BIAuthor\" roleDisplayName=\"BI Author Role\">\n      <folderPermission>\n         <allow path=\"/Custom/Extensions/CP/SHIP_MASTBOL_RPT.xdo\" recursive=\"false\" permissions=\"oracle.bi.publisher.fullControl,;&#x9; \"/>\n      </folderPermission>\n   </policy>\n   <policy rolename=\"BIAdministrator\" roleGUID=\"BIAdministrator\" roleDisplayName=\"BI Administrator Role\">\n      <folderPermission>\n         <allow path=\"/Cus",
+        "lines": 19,
+        "characters": 989
+      },
+      {
+        "path": "CP/SHIP_MASTBOL_RPT.xdoz/REP_en_US.rtf",
+        "extension": ".rtf",
+        "fileType": "text",
+        "bytes": 9100,
+        "sha256": "26903ba545e15396d6fd6718d0c1a3666991375fd406bc0cd2d0d5e1e1ad8701",
+        "archiveDepth": 2,
+        "parentArchivePath": "CP/SHIP_MASTBOL_RPT.xdoz",
+        "textPreview": "{\\rtf1\\ansi\\deff0 \n{\\fonttbl\n{\\f0 \\fArial Arial;}\n{\\f1 Times;}\n{\\f2 Courier New;}\n}\n{\\colortbl\n;\n\\red0\\green0\\blue0;\n\\red255\\green255\\blue255;\n\\red221\\green221\\blue221;\n\\red223\\green234\\blue243;\n}\n{\\info\n{\\doccomm Generated by Oracle Analytics Publisher}\n}\n\\formshade\\viewkind1\\viewbksp1\\uc1\\dntblnsbdb\n\\paperw12240\\paperh15840\\margt720\\margb720\\margl720\\margr720\n{\\header \\trowd\n\\trleft20\n\\clcbpat2\\clbrdrt\\brdrs\\brdrw10\\brdrcf3\\clbrdrb\\brdrs\\brdrw10\\brdrcf3\\clbrdrl\\brdrs\\brdrw10\\brdrcf3\\clbrdrr\\br",
+        "lines": 137,
+        "characters": 8964
+      },
+      {
+        "path": "CP/SHIP_MASTBOL_RPT.xdoz/REP.rtf.png",
+        "extension": ".png",
+        "fileType": "binary",
+        "bytes": 1308,
+        "sha256": "426668b829584771d1f14a3d217f3d39f2f0beae6eb222c04ca51074960c9f0e",
+        "archiveDepth": 2,
+        "parentArchivePath": "CP/SHIP_MASTBOL_RPT.xdoz"
+      },
+      {
+        "path": "CP/SHIP_MASTBOL_RPT.xdoz/xdo.cfg",
+        "extension": ".cfg",
+        "fileType": "text",
+        "bytes": 120,
+        "sha256": "19a3b7090a3956d751bd0c681a4221dbdbaca32e1f03d4452d718116f0f68ced",
+        "archiveDepth": 2,
+        "parentArchivePath": "CP/SHIP_MASTBOL_RPT.xdoz",
+        "textPreview": "<config version=\"1.0.0\" xmlns=\"http://xmlns.oracle.com/oxp/config/\">\n<properties/>\n\t<fonts/>\n\n\t\n\n\t\n\n\t\n\n\t\n\n\t\n\n\t</config>\n",
+        "lines": 16,
+        "characters": 120
+      }
+    ],
+    "tree": {
+      "type": "folder",
+      "name": "/",
+      "path": "",
+      "children": [
+        {
+          "type": "folder",
+          "name": "CP",
+          "path": "CP",
+          "children": [
+            {
+              "type": "folder",
+              "name": "CUST_REP_DM.xdmz",
+              "path": "CP/CUST_REP_DM.xdmz",
+              "children": [
+                {
+                  "type": "file",
+                  "name": "_datamodel.xdm",
+                  "path": "CP/CUST_REP_DM.xdmz/_datamodel.xdm",
+                  "extension": ".xdm",
+                  "fileType": "text",
+                  "bytes": 4670,
+                  "sha256": "165b3fce54d10cc1a1d1f579b70a805bf236c945a7f71a090d17f2eb899d24f9",
+                  "archiveDepth": 2,
+                  "parentArchivePath": "CP/CUST_REP_DM.xdmz"
+                },
+                {
+                  "type": "file",
+                  "name": "~metadata.meta",
+                  "path": "CP/CUST_REP_DM.xdmz/~metadata.meta",
+                  "extension": ".meta",
+                  "fileType": "text",
+                  "bytes": 558,
+                  "sha256": "ce4315b152227a35bf0eabbcc54c9efd29242cd9db868fae0a979284f962c650",
+                  "archiveDepth": 2,
+                  "parentArchivePath": "CP/CUST_REP_DM.xdmz"
+                },
+                {
+                  "type": "file",
+                  "name": "~security.sec",
+                  "path": "CP/CUST_REP_DM.xdmz/~security.sec",
+                  "extension": ".sec",
+                  "fileType": "text",
+                  "bytes": 974,
+                  "sha256": "b31a14a93991c5998e00a7f555f98b3992590427d32d1df414fca5c5f7da319a",
+                  "archiveDepth": 2,
+                  "parentArchivePath": "CP/CUST_REP_DM.xdmz"
+                },
+                {
+                  "type": "file",
+                  "name": "sample.xml",
+                  "path": "CP/CUST_REP_DM.xdmz/sample.xml",
+                  "extension": ".xml",
+                  "fileType": "text",
+                  "bytes": 616,
+                  "sha256": "9b5188f6bb61070ac5916b4e631c31641536fdd2c3e8f65ab45165f157355ee4",
+                  "archiveDepth": 2,
+                  "parentArchivePath": "CP/CUST_REP_DM.xdmz"
+                }
+              ]
+            },
+            {
+              "type": "folder",
+              "name": "CUST_REP_RPT.xdoz",
+              "path": "CP/CUST_REP_RPT.xdoz",
+              "children": [
+                {
+                  "type": "file",
+                  "name": "_report.xdo",
+                  "path": "CP/CUST_REP_RPT.xdoz/_report.xdo",
+                  "extension": ".xdo",
+                  "fileType": "text",
+                  "bytes": 1490,
+                  "sha256": "e854e7135c0922331aa129e75ecca10bb5874cbbb41469a075c11a06d8132ebc",
+                  "archiveDepth": 2,
+                  "parentArchivePath": "CP/CUST_REP_RPT.xdoz"
+                },
+                {
+                  "type": "file",
+                  "name": "~metadata.meta",
+                  "path": "CP/CUST_REP_RPT.xdoz/~metadata.meta",
+                  "extension": ".meta",
+                  "fileType": "text",
+                  "bytes": 770,
+                  "sha256": "2c77ee69d9c0606a68c2c210d0974f20e6aec65e65083f46cd144f7b1942b4a6",
+                  "archiveDepth": 2,
+                  "parentArchivePath": "CP/CUST_REP_RPT.xdoz"
+                },
+                {
+                  "type": "file",
+                  "name": "~security.sec",
+                  "path": "CP/CUST_REP_RPT.xdoz/~security.sec",
+                  "extension": ".sec",
+                  "fileType": "text",
+                  "bytes": 977,
+                  "sha256": "623f86de152e3d4a7b988ac3609c101b024d0b22a4fe83bb798267d04701d32f",
+                  "archiveDepth": 2,
+                  "parentArchivePath": "CP/CUST_REP_RPT.xdoz"
+                },
+                {
+                  "type": "file",
+                  "name": "REP_en_US.rtf",
+                  "path": "CP/CUST_REP_RPT.xdoz/REP_en_US.rtf",
+                  "extension": ".rtf",
+                  "fileType": "text",
+                  "bytes": 14565,
+                  "sha256": "4649023482d176d0bc877a9e395b827d48083554891652bbafeaee8bf8834ffe",
+                  "archiveDepth": 2,
+                  "parentArchivePath": "CP/CUST_REP_RPT.xdoz"
+                },
+                {
+                  "type": "file",
+                  "name": "REP.rtf.png",
+                  "path": "CP/CUST_REP_RPT.xdoz/REP.rtf.png",
+                  "extension": ".png",
+                  "fileType": "binary",
+                  "bytes": 2189,
+                  "sha256": "f93c13c20a60d3da420040a17d0264472a85e9841d93a59ad9a04dfcf2d2dc73",
+                  "archiveDepth": 2,
+                  "parentArchivePath": "CP/CUST_REP_RPT.xdoz"
+                },
+                {
+                  "type": "file",
+                  "name": "xdo.cfg",
+                  "path": "CP/CUST_REP_RPT.xdoz/xdo.cfg",
+                  "extension": ".cfg",
+                  "fileType": "text",
+                  "bytes": 191,
+                  "sha256": "192b22c448c6b31dab919215401ca0cd977b6f40dcfa52e93077861d7cddaf9b",
+                  "archiveDepth": 2,
+                  "parentArchivePath": "CP/CUST_REP_RPT.xdoz"
+                }
+              ]
+            },
+            {
+              "type": "folder",
+              "name": "SHIP_MASTBOL_DM.xdmz",
+              "path": "CP/SHIP_MASTBOL_DM.xdmz",
+              "children": [
+                {
+                  "type": "file",
+                  "name": "_datamodel.xdm",
+                  "path": "CP/SHIP_MASTBOL_DM.xdmz/_datamodel.xdm",
+                  "extension": ".xdm",
+                  "fileType": "text",
+                  "bytes": 4085,
+                  "sha256": "4dab0d8663e88189f020d4794b63e701cd2a31b8fe8137a00a5123b5d7ce069f",
+                  "archiveDepth": 2,
+                  "parentArchivePath": "CP/SHIP_MASTBOL_DM.xdmz"
+                },
+                {
+                  "type": "file",
+                  "name": "~metadata.meta",
+                  "path": "CP/SHIP_MASTBOL_DM.xdmz/~metadata.meta",
+                  "extension": ".meta",
+                  "fileType": "text",
+                  "bytes": 566,
+                  "sha256": "b275e896d491c8476009938b5913642c260b4e6b640f093b72e1d34bb4fc68fb",
+                  "archiveDepth": 2,
+                  "parentArchivePath": "CP/SHIP_MASTBOL_DM.xdmz"
+                },
+                {
+                  "type": "file",
+                  "name": "~security.sec",
+                  "path": "CP/SHIP_MASTBOL_DM.xdmz/~security.sec",
+                  "extension": ".sec",
+                  "fileType": "text",
+                  "bytes": 986,
+                  "sha256": "714ce18730f4cd2567007de205430330a26da8276dc47f437797eb2970eb13be",
+                  "archiveDepth": 2,
+                  "parentArchivePath": "CP/SHIP_MASTBOL_DM.xdmz"
+                },
+                {
+                  "type": "file",
+                  "name": "sample.xml",
+                  "path": "CP/SHIP_MASTBOL_DM.xdmz/sample.xml",
+                  "extension": ".xml",
+                  "fileType": "text",
+                  "bytes": 314,
+                  "sha256": "b09a1a07a8393aa5c3bdcf9065c8f513bcbc35ed159da61fba90a68c0f391ef0",
+                  "archiveDepth": 2,
+                  "parentArchivePath": "CP/SHIP_MASTBOL_DM.xdmz"
+                }
+              ]
+            },
+            {
+              "type": "folder",
+              "name": "SHIP_MASTBOL_RPT.xdoz",
+              "path": "CP/SHIP_MASTBOL_RPT.xdoz",
+              "children": [
+                {
+                  "type": "file",
+                  "name": "_report.xdo",
+                  "path": "CP/SHIP_MASTBOL_RPT.xdoz/_report.xdo",
+                  "extension": ".xdo",
+                  "fileType": "text",
+                  "bytes": 1490,
+                  "sha256": "72dc392dda661b2bad78063843ac716de49cf0286453e78ca0b7c56a149ef45b",
+                  "archiveDepth": 2,
+                  "parentArchivePath": "CP/SHIP_MASTBOL_RPT.xdoz"
+                },
+                {
+                  "type": "file",
+                  "name": "~metadata.meta",
+                  "path": "CP/SHIP_MASTBOL_RPT.xdoz/~metadata.meta",
+                  "extension": ".meta",
+                  "fileType": "text",
+                  "bytes": 778,
+                  "sha256": "65ee338a9ff6245a4e0070333f5270db513f3f646f9bbd4eb8afd9e24f3b514e",
+                  "archiveDepth": 2,
+                  "parentArchivePath": "CP/SHIP_MASTBOL_RPT.xdoz"
+                },
+                {
+                  "type": "file",
+                  "name": "~security.sec",
+                  "path": "CP/SHIP_MASTBOL_RPT.xdoz/~security.sec",
+                  "extension": ".sec",
+                  "fileType": "text",
+                  "bytes": 989,
+                  "sha256": "3d428e3ae712756b93bd20f7a7be2bd4be0c15ceffefd9507db932ee2a4e1daf",
+                  "archiveDepth": 2,
+                  "parentArchivePath": "CP/SHIP_MASTBOL_RPT.xdoz"
+                },
+                {
+                  "type": "file",
+                  "name": "REP_en_US.rtf",
+                  "path": "CP/SHIP_MASTBOL_RPT.xdoz/REP_en_US.rtf",
+                  "extension": ".rtf",
+                  "fileType": "text",
+                  "bytes": 9100,
+                  "sha256": "26903ba545e15396d6fd6718d0c1a3666991375fd406bc0cd2d0d5e1e1ad8701",
+                  "archiveDepth": 2,
+                  "parentArchivePath": "CP/SHIP_MASTBOL_RPT.xdoz"
+                },
+                {
+                  "type": "file",
+                  "name": "REP.rtf.png",
+                  "path": "CP/SHIP_MASTBOL_RPT.xdoz/REP.rtf.png",
+                  "extension": ".png",
+                  "fileType": "binary",
+                  "bytes": 1308,
+                  "sha256": "426668b829584771d1f14a3d217f3d39f2f0beae6eb222c04ca51074960c9f0e",
+                  "archiveDepth": 2,
+                  "parentArchivePath": "CP/SHIP_MASTBOL_RPT.xdoz"
+                },
+                {
+                  "type": "file",
+                  "name": "xdo.cfg",
+                  "path": "CP/SHIP_MASTBOL_RPT.xdoz/xdo.cfg",
+                  "extension": ".cfg",
+                  "fileType": "text",
+                  "bytes": 120,
+                  "sha256": "19a3b7090a3956d751bd0c681a4221dbdbaca32e1f03d4452d718116f0f68ced",
+                  "archiveDepth": 2,
+                  "parentArchivePath": "CP/SHIP_MASTBOL_RPT.xdoz"
+                }
+              ]
+            },
+            {
+              "type": "file",
+              "name": "~metadata.meta",
+              "path": "CP/~metadata.meta",
+              "extension": ".meta",
+              "fileType": "text",
+              "bytes": 425,
+              "sha256": "2ec4f68ae3a8b0b40e62bf2bb9460b456b287d60668b2ab6f56b3769e1e75b27",
+              "archiveDepth": 1,
+              "parentArchivePath": "CP"
+            },
+            {
+              "type": "file",
+              "name": "~security.sec",
+              "path": "CP/~security.sec",
+              "extension": ".sec",
+              "fileType": "text",
+              "bytes": 926,
+              "sha256": "1f075c6b1cab2eaff42210e6cd8c053922d2c57f8aed6a24ec067d239f01c5e3",
+              "archiveDepth": 1,
+              "parentArchivePath": "CP"
+            },
+            {
+              "type": "file",
+              "name": "CUST_REP_DM.xdmz",
+              "path": "CP/CUST_REP_DM.xdmz",
+              "extension": ".xdmz",
+              "fileType": "archive",
+              "bytes": 2740,
+              "sha256": "0e00972be68aaec1136b54d74d0b21574ace410116e4e1b1a7c8361eb8381815",
+              "archiveDepth": 1,
+              "parentArchivePath": "CP"
+            },
+            {
+              "type": "file",
+              "name": "CUST_REP_RPT.xdoz",
+              "path": "CP/CUST_REP_RPT.xdoz",
+              "extension": ".xdoz",
+              "fileType": "archive",
+              "bytes": 7494,
+              "sha256": "62c132f129691943b3a4290f5d615540a83948a81c73034165d9acd47adea54c",
+              "archiveDepth": 1,
+              "parentArchivePath": "CP"
+            },
+            {
+              "type": "file",
+              "name": "SHIP_MASTBOL_DM.xdmz",
+              "path": "CP/SHIP_MASTBOL_DM.xdmz",
+              "extension": ".xdmz",
+              "fileType": "archive",
+              "bytes": 2491,
+              "sha256": "d2f0f58b169e39b7f44a27f5724284678b74f3a91854f7b67cce7f9412d1c909",
+              "archiveDepth": 1,
+              "parentArchivePath": "CP"
+            },
+            {
+              "type": "file",
+              "name": "SHIP_MASTBOL_RPT.xdoz",
+              "path": "CP/SHIP_MASTBOL_RPT.xdoz",
+              "extension": ".xdoz",
+              "fileType": "archive",
+              "bytes": 6327,
+              "sha256": "af000ff43bfca9b7661f58ce4f984451afd21897f1699d1aba31a4540a3991ba",
+              "archiveDepth": 1,
+              "parentArchivePath": "CP"
+            }
+          ]
+        },
+        {
+          "type": "file",
+          "name": "CP",
+          "path": "CP",
+          "extension": "",
+          "fileType": "archive",
+          "bytes": 19134,
+          "sha256": "dfed86fd3a7c7876a58ae4f492481a6b71dfbfcbd6fe91d5b2d2ba187876f0d6",
+          "archiveDepth": 0,
+          "parentArchivePath": null
+        }
+      ]
+    }
+  },
+  "dataModel": {
+    "detected": true,
+    "sourceFiles": [
+      "CP/CUST_REP_DM.xdmz/_datamodel.xdm",
+      "CP/CUST_REP_RPT.xdoz/_report.xdo",
+      "CP/SHIP_MASTBOL_DM.xdmz/_datamodel.xdm",
+      "CP/SHIP_MASTBOL_RPT.xdoz/_report.xdo"
+    ],
+    "modelNames": [],
+    "dataSets": [
+      "Customer",
+      "DM"
+    ],
+    "parameters": [
+      "p_email",
+      "p_party_type",
+      "P_SO_LINE_NUM",
+      "P_SO_NUM"
+    ],
+    "tables": [
+      "HZ_CONTACT_POINTS",
+      "hz_parties",
+      "inv_transfer_order_headers",
+      "wsh_new_deliveries"
+    ],
+    "columns": [
+      "ACCT_VENDOR_NAME",
+      "ACCT_VENDOR_NUMBER",
+      "CUST_ACCT_VENDOR_ID",
+      "MASTERBOL",
+      "ORG_PARTY_ID",
+      "ORG_PARTY_NUMBER",
+      "PARTY_TYPE",
+      "PERSON_FIRST_NAME",
+      "PERSON_LAST_NAME",
+      "PERSON_PARTY_ID",
+      "SHIPMENTNUM",
+      "STATUS_CODE",
+      "TONUMBER",
+      "VESSELNAME"
+    ],
+    "rootTagFrequency": {
+      "metadata": 5,
+      "security": 5,
+      "config": 2,
+      "DATA_DS": 2,
+      "dataModel": 2,
+      "report": 2
+    },
+    "sqlQueryCount": 2
+  },
+  "sqlQueries": {
+    "totalQueries": 2,
+    "uniqueQueryShapes": 2,
+    "totalSqlCharacters": 2679,
+    "tableFrequency": {
+      "HZ_CONTACT_POINTS": 1,
+      "hz_parties": 1,
+      "inv_transfer_order_headers": 1,
+      "wsh_new_deliveries": 1
+    },
+    "queries": [
+      {
+        "id": "Q1",
+        "path": "CP/CUST_REP_DM.xdmz/_datamodel.xdm",
+        "source": "xml-tag:sql",
+        "name": "sql-1",
+        "sql": "<![CDATA[select \nhp_org.party_number org_party_number,\nhp_org.party_id org_party_id,\nhca.account_number acct_vendor_number, \nhca.account_name acct_vendor_name,\nhca.cust_account_id cust_acct_vendor_id,\nhp_person.PERSON_FIRST_NAME PERSON_FIRST_NAME,\nhp_person.PERSON_LAST_NAME PERSON_LAST_NAME,\nhp_person.party_id person_party_id,\n:p_party_type party_type\nfrom HZ_CONTACT_POINTS hcp\n, HZ_CUST_ACCOUNT_ROLES hcar\n, HZ_CUST_ACCOUNTS hca\n, HZ_PARTIES hp_org\n, HZ_PARTIES hp_person\nwhere hp_org.party_id=hca.PARTY_ID\nand hca.CUST_ACCOUNT_ID=hcar.cust_account_id(+)\nand hcar.contact_person_id=hcp.owner_table_id(+)\nand hcar.contact_person_id=hp_person.PARTY_ID\nand hcp.contact_point_type='EMAIL'\nand hcp.email_address=:p_email\nand :p_party_type='CUSTOMER'\nUNION\nselect \nhp_org.party_number org_party_number,\nhp_org.party_id org_party_id,\nps.segment1 vendor_number,\nhp_org.party_name vendor_name,\nps.vendor_id,\npasc.PERSON_FIRST_NAME PERSON_FIRST_NAME,\npasc.PERSON_LAST_NAME PERSON_LAST_NAME,\npasc.PER_PARTY_ID  person_party_id,\n:p_party_type\nfrom hz_parties hp_org,\npoz_suppliers ps,\nPOZ_ALL_SUPPLIER_CONTACTS_V  pasc\nwhere 1=1\nand ps.party_id=hp_org.party_id\n--and ps.segment1='ZHRUCO'\nand :p_party_type='SUPPLIER'\nand hp_org.party_id=pasc.SUP_PARTY_ID \nand pasc.email_address=:p_email]]>",
+        "normalizedSql": "<![CDATA[select hp_org.party_number org_party_number, hp_org.party_id org_party_id, hca.account_number acct_vendor_number, hca.account_name acct_vendor_name, hca.cust_account_id cust_acct_vendor_id, hp_person.PERSON_FIRST_NAME PERSON_FIRST_NAME, hp_person.PERSON_LAST_NAME PERSON_LAST_NAME, hp_person.party_id person_party_id, :p_party_type party_type from HZ_CONTACT_POINTS hcp , HZ_CUST_ACCOUNT_ROLES hcar , HZ_CUST_ACCOUNTS hca , HZ_PARTIES hp_org , HZ_PARTIES hp_person where hp_org.party_id=hca.PARTY_ID and hca.CUST_ACCOUNT_ID=hcar.cust_account_id(+) and hcar.contact_person_id=hcp.owner_table_id(+) and hcar.contact_person_id=hp_person.PARTY_ID and hcp.contact_point_type='EMAIL' and hcp.email_address=:p_email and :p_party_type='CUSTOMER' UNION select hp_org.party_number org_party_number, hp_org.party_id org_party_id, ps.segment1 vendor_number, hp_org.party_name vendor_name, ps.vendor_id, pasc.PERSON_FIRST_NAME PERSON_FIRST_NAME, pasc.PERSON_LAST_NAME PERSON_LAST_NAME, pasc.PER_PARTY_ID person_party_id, :p_party_type from hz_parties hp_org, poz_suppliers ps, POZ_ALL_SUPPLIER_CONTACTS_V pasc where 1=1 and ps.party_id=hp_org.party_id and :p_party_type='SUPPLIER' and hp_org.party_id=pasc.SUP_PARTY_ID and pasc.email_address=:p_email]]>",
+        "hash": "6da9cc629744d3cb62a410a8ab1195acc93155c2c9aa7148ed6c3f0a5e05a17a",
+        "tables": [
+          "HZ_CONTACT_POINTS",
+          "hz_parties"
+        ],
+        "characters": 1282,
+        "lines": 42,
+        "preview": "<![CDATA[select \nhp_org.party_number org_party_number,\nhp_org.party_id org_party_id,\nhca.account_number acct_vendor_number, \nhca.account_name acct_vendor_name,\nhca.cust_account_id cust_acct_vendor_id,\nhp_person.PERSON_FIRST_NAME PERSON_FIRST_NAME,\nhp_person.PERSON_LAST_NAME PERSON_LAST_NAME,\nhp_person.party_id person_party_id,\n:p_party_type party_type\nfrom HZ_CONTACT_POINTS hcp\n, HZ_CUST_ACCOUNT_ROLES hcar\n, HZ_CUST_ACCOUNTS hca\n, HZ_PARTIES hp_org\n, HZ_PARTIES hp_person\nwhere hp_org.party_id=hca.PARTY_ID\nand hca.CUST_ACCOUNT_ID=hcar.cust_account_id(+)\nand hcar.contact_person_id=hcp.owner_table_id(+)\nand hcar.contact_person_id=hp_person.PARTY_ID\nand hcp.contact_point_type='EMAIL'\nand hcp.email_address=:p_email\nand :p_party_type='CUSTOMER'\nUNION\nselect \nhp_org.party_number org_party_number,"
+      },
+      {
+        "id": "Q2",
+        "path": "CP/SHIP_MASTBOL_DM.xdmz/_datamodel.xdm",
+        "source": "xml-tag:sql",
+        "name": "sql-1",
+        "sql": "<![CDATA[SELECT\n    ith.header_number            tonumber,\n    wnd.attribute12              masterbol,\n    wnd.delivery_name            shipmentnum,\n    substr(wnd.attribute9, 1, 3) vesselname,\n    wnd.status_code\nFROM\n    inv_transfer_order_headers ith,\n    inv_transfer_order_lines   itl,\n    wsh_new_deliveries         wnd,\n    wsh_delivery_assignments   wda,\n    wsh_delivery_details       wdd\nWHERE\n        1 = 1\n    AND ith.header_id = itl.header_id\n    AND itl.supply_order_reference_number = :p_so_num\n    AND itl.supply_order_ref_line_number = :p_so_line_num\n    AND wnd.delivery_id = wda.delivery_id\n    AND wda.delivery_detail_id = wdd.delivery_detail_id\n    AND wdd.sales_order_number = ith.header_number\n    AND wdd.sales_order_line_number = itl.line_number\n    AND wdd.source_line_type = 'TRANSFER_ORDER'\nUNION\nSELECT\n    NULL                         tonumber,\n    wnd.attribute12              masterbol,\n    wnd.delivery_name            shipmentnum,\n    substr(wnd.attribute9, 1, 3) vesselname,\n    wnd.status_code\nFROM\n    wsh_new_deliveries       wnd,\n    wsh_delivery_assignments wda,\n    wsh_delivery_details     wdd\nWHERE\n        1 = 1\n    AND wnd.delivery_id = wda.delivery_id\n    AND wda.delivery_detail_id = wdd.delivery_detail_id\n    AND wdd.sales_order_number = :p_so_num\n    AND wdd.sales_order_line_number = :p_so_line_num\n    AND wdd.source_line_type = 'SALES_ORDER']]>",
+        "normalizedSql": "<![CDATA[SELECT ith.header_number tonumber, wnd.attribute12 masterbol, wnd.delivery_name shipmentnum, substr(wnd.attribute9, 1, 3) vesselname, wnd.status_code FROM inv_transfer_order_headers ith, inv_transfer_order_lines itl, wsh_new_deliveries wnd, wsh_delivery_assignments wda, wsh_delivery_details wdd WHERE 1 = 1 AND ith.header_id = itl.header_id AND itl.supply_order_reference_number = :p_so_num AND itl.supply_order_ref_line_number = :p_so_line_num AND wnd.delivery_id = wda.delivery_id AND wda.delivery_detail_id = wdd.delivery_detail_id AND wdd.sales_order_number = ith.header_number AND wdd.sales_order_line_number = itl.line_number AND wdd.source_line_type = 'TRANSFER_ORDER' UNION SELECT NULL tonumber, wnd.attribute12 masterbol, wnd.delivery_name shipmentnum, substr(wnd.attribute9, 1, 3) vesselname, wnd.status_code FROM wsh_new_deliveries wnd, wsh_delivery_assignments wda, wsh_delivery_details wdd WHERE 1 = 1 AND wnd.delivery_id = wda.delivery_id AND wda.delivery_detail_id = wdd.delivery_detail_id AND wdd.sales_order_number = :p_so_num AND wdd.sales_order_line_number = :p_so_line_num AND wdd.source_line_type = 'SALES_ORDER']]>",
+        "hash": "1c123d96da850cbeaeaa1c5f08be95bfc835569da3ac99b1449eb5c4f3d130aa",
+        "tables": [
+          "inv_transfer_order_headers",
+          "wsh_new_deliveries"
+        ],
+        "characters": 1397,
+        "lines": 40,
+        "preview": "<![CDATA[SELECT\n    ith.header_number            tonumber,\n    wnd.attribute12              masterbol,\n    wnd.delivery_name            shipmentnum,\n    substr(wnd.attribute9, 1, 3) vesselname,\n    wnd.status_code\nFROM\n    inv_transfer_order_headers ith,\n    inv_transfer_order_lines   itl,\n    wsh_new_deliveries         wnd,\n    wsh_delivery_assignments   wda,\n    wsh_delivery_details       wdd\nWHERE\n        1 = 1\n    AND ith.header_id = itl.header_id\n    AND itl.supply_order_reference_number = :p_so_num\n    AND itl.supply_order_ref_line_number = :p_so_line_num\n    AND wnd.delivery_id = wda.delivery_id\n    AND wda.delivery_detail_id = wdd.delivery_detail_id\n    AND wdd.sales_order_number = ith.header_number\n    AND wdd.sales_order_line_number = itl.line_number\n    AND wdd.source_line_type "
+      }
+    ]
+  },
+  "metadataProperties": {
+    "totalProperties": 4,
+    "uniquePropertyKeys": 3,
+    "keyFrequency": {
+      "1": 1,
+      "and": 2,
+      "xdk-secure-io-mode": 1
+    },
+    "entries": [
+      {
+        "path": "CP/CUST_REP_DM.xdmz/_datamodel.xdm",
+        "key": "and",
+        "value": "p_party_type='CUSTOMER'"
+      },
+      {
+        "path": "CP/CUST_REP_DM.xdmz/_datamodel.xdm",
+        "key": "and",
+        "value": "p_party_type='SUPPLIER'"
+      },
+      {
+        "path": "CP/CUST_REP_RPT.xdoz/xdo.cfg",
+        "key": "xdk-secure-io-mode",
+        "value": "true"
+      },
+      {
+        "path": "CP/SHIP_MASTBOL_DM.xdmz/_datamodel.xdm",
+        "key": "1",
+        "value": "1"
+      }
+    ]
+  }
+}

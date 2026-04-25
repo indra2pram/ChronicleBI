@@ -13,6 +13,7 @@ const {
   saveConnection,
   testConnection
 } = require("./project-store");
+const { downloadBipObject } = require("./bip-catalog-service");
 
 const hostname = "127.0.0.1";
 const port = Number.parseInt(process.env.PORT || "3000", 10);
@@ -123,6 +124,9 @@ function registerIpcHandlers() {
   );
   ipcMain.handle("connection:test", (_event, projectCode, connectionInput, existingConnectionName) =>
     testConnection(projectCode, connectionInput, existingConnectionName)
+  );
+  ipcMain.handle("bip:download-object", (_event, projectCode, connectionName, reportPath) =>
+    downloadBipObject(projectCode, connectionName, reportPath)
   );
 }
 

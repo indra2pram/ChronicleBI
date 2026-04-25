@@ -1027,6 +1027,15 @@ export default function HomePage() {
               >
                 Compare bundles
               </button>
+              <button
+                className="secondary-button"
+                onClick={() => {
+                  window.location.href = "/bip-download";
+                }}
+                type="button"
+              >
+                BIP downloadObject
+              </button>
             </div>
 
             {selectedProject ? (

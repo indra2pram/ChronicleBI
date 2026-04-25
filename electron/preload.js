@@ -13,6 +13,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("connection:delete", projectCode, connectionName),
   testConnection: (projectCode, connection, existingConnectionName) =>
     ipcRenderer.invoke("connection:test", projectCode, connection, existingConnectionName),
+  downloadBipObject: (projectCode, connectionName, reportPath) =>
+    ipcRenderer.invoke("bip:download-object", projectCode, connectionName, reportPath),
   onMenuAction: (callback) => {
     const listener = (_event, command) => {
       callback(command);
