@@ -31,6 +31,50 @@ interface ConnectionTestResult {
   testedAt: string;
 }
 
+interface BipPayloadMetadata {
+  transportEncoding: string;
+  originalLength: number;
+  normalizedLength: number;
+  decodedBytes: number;
+  sha256: string;
+  format: string;
+  isLikelyText: boolean;
+  text?: Record<string, unknown>;
+  zip?: Record<string, unknown>;
+}
+
+interface BipDownloadMetadata {
+  generatedAt: string;
+  reportPath: string;
+  payload: BipPayloadMetadata;
+  extraction?: Record<string, unknown>;
+  structure?: Record<string, unknown>;
+  dataModel?: Record<string, unknown>;
+  sqlQueries?: Record<string, unknown>;
+  metadataProperties?: Record<string, unknown>;
+}
+
+interface BipDownloadResult {
+  requestedAt: string;
+  projectCode: string;
+  projectName: string;
+  connectionName: string;
+  endpoint: string;
+  variantUsed: string;
+  httpStatus: number;
+  reportPath: string;
+  downloadObjectReturn: string;
+  payloadBase64Length: number;
+  payloadDecodedBytes: number | null;
+  payloadPreview: string;
+  responseSnippet: string;
+  metadataFileName: string;
+  metadata: BipDownloadMetadata;
+  metadataSavedPath: string;
+  metadataSavedFolder: string;
+  bipJsonRootFolder: string;
+}
+
 interface StoredProject extends ProjectDraft {
   createdAt: string;
   updatedAt: string;
@@ -63,6 +107,11 @@ interface Window {
       connection: ConnectionDraft,
       existingConnectionName?: string | null
     ) => Promise<ConnectionTestResult>;
+    downloadBipObject: (
+      projectCode: string,
+      connectionName: string,
+      reportPath: string
+    ) => Promise<BipDownloadResult>;
     onMenuAction: (callback: (command: ProjectMenuAction) => void) => () => void;
   };
 }

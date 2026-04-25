@@ -1017,6 +1017,27 @@ export default function HomePage() {
               consistent subfolders underneath each one.
             </p>
 
+            <div className="hero-actions">
+              <button
+                className="secondary-button"
+                onClick={() => {
+                  window.location.href = "/compare";
+                }}
+                type="button"
+              >
+                Compare bundles
+              </button>
+              <button
+                className="secondary-button"
+                onClick={() => {
+                  window.location.href = "/bip-download";
+                }}
+                type="button"
+              >
+                BIP downloadObject
+              </button>
+            </div>
+
             {selectedProject ? (
               <>
                 <div className="hero-summary-row">
