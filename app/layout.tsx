@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   title: "Chronicle BI",
   description: "Chronicle BI desktop workspace for projects, connections, and catalog metadata.",
   icons: {
-    icon: "/assets/icons/chronicle_bi_symbol.ico"
+    icon: "/assets/icons/desktop_app_icon_pack/app_icon_windows.ico"
   }
 };
 

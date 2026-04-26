@@ -20,8 +20,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("connection:delete", projectCode, connectionName),
   downloadBipObject: (projectCode, connectionName, catalogPath) =>
     ipcRenderer.invoke("bip:download-object", projectCode, connectionName, catalogPath),
-  getCachedCatalogMetadata: (projectCode, catalogPath) =>
-    ipcRenderer.invoke("catalog:get-cached-metadata", projectCode, catalogPath),
+  downloadCatalogToFile: (projectCode, connectionName, catalogPath) =>
+    ipcRenderer.invoke("catalog:download-to-file", projectCode, connectionName, catalogPath),
+  getCachedCatalogMetadata: (projectCode, catalogPath, historyEntryId) =>
+    ipcRenderer.invoke("catalog:get-cached-metadata", projectCode, catalogPath, historyEntryId),
   saveMetadataJson: (defaultFileName, metadata) =>
     ipcRenderer.invoke("metadata:save-json", defaultFileName, metadata),
   onMenuAction: (callback) => {

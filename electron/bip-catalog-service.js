@@ -1412,6 +1412,7 @@ async function downloadBipObject(projectCode, connectionName, reportPath) {
     projectCode: project.code,
     projectName: project.name,
     connectionName: connection.name,
+    environmentType: connection.environmentType,
     endpoint: response.endpoint,
     variantUsed: response.variantUsed,
     httpStatus: response.httpStatus,
@@ -1427,8 +1428,6 @@ async function downloadBipObject(projectCode, connectionName, reportPath) {
     metadataSavedFolder: savedLocation.reportFolderPath,
     bipJsonRootFolder: savedLocation.bipJsonRoot
   };
-
-  console.log(result.downloadObjectReturn);
 
   return result;
 }

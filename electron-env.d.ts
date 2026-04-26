@@ -40,7 +40,9 @@ interface CatalogMetadataHistoryEntry {
   completedAt: string;
   status: CatalogMetadataHistoryStatus;
   connectionName: string;
+  environmentType: EnvironmentType | null;
   fileName: string | null;
+  tempFilePath: string | null;
   detail: string;
 }
 
@@ -62,6 +64,7 @@ interface BipPayloadMetadata {
   sha256: string;
   format: string;
   isLikelyText: boolean;
+  rootPayloadName: string;
   text?: Record<string, unknown>;
   zip?: Record<string, unknown>;
 }
@@ -82,6 +85,7 @@ interface BipDownloadResult {
   projectCode: string;
   projectName: string;
   connectionName: string;
+  environmentType: EnvironmentType;
   endpoint: string;
   variantUsed: string;
   httpStatus: number;
@@ -97,6 +101,14 @@ interface BipDownloadResult {
   metadataSavedFolder: string;
   bipJsonRootFolder: string;
   tempMetadataPath: string;
+}
+
+interface CatalogDownloadToFileResult {
+  canceled: boolean;
+  filePath: string | null;
+  fileName: string;
+  catalogPath: string;
+  connectionName: string;
 }
 
 interface MetadataSaveResult {
@@ -159,9 +171,15 @@ interface Window {
       connectionName: string,
       catalogPath: string
     ) => Promise<BipDownloadResult>;
+    downloadCatalogToFile: (
+      projectCode: string,
+      connectionName: string,
+      catalogPath: string
+    ) => Promise<CatalogDownloadToFileResult>;
     getCachedCatalogMetadata: (
       projectCode: string,
-      catalogPath: string
+      catalogPath: string,
+      historyEntryId?: string | null
     ) => Promise<CachedCatalogMetadata>;
     saveMetadataJson: (
       defaultFileName: string,

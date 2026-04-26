@@ -56,6 +56,16 @@ function normalizeEnvironmentType(input) {
   return "Dev";
 }
 
+function normalizeOptionalEnvironmentType(input) {
+  const value = String(input ?? "").trim();
+
+  if (!value) {
+    return null;
+  }
+
+  return normalizeEnvironmentType(value);
+}
+
 function normalizeConnectionUrl(input) {
   const value = String(input ?? "").trim();
 
@@ -115,7 +125,9 @@ function normalizeCatalogMetadataHistoryEntry(input) {
     completedAt,
     status,
     connectionName: String(input?.connectionName ?? "").trim(),
+    environmentType: normalizeOptionalEnvironmentType(input?.environmentType),
     fileName: normalizeOptionalString(input?.fileName),
+    tempFilePath: normalizeOptionalString(input?.tempFilePath),
     detail:
       String(input?.detail ?? "").trim() ||
       (status === "success" ? "Metadata JSON cached." : "Metadata download failed.")
@@ -612,10 +624,13 @@ async function recordCatalogMetadataDownload(projectCode, catalogPath, historyIn
   });
   const nextCatalogs = [...project.catalogs];
   const currentCatalog = nextCatalogs[catalogIndex];
+  const nextHistorySource = [historyEntry, ...currentCatalog.metadataHistory];
+  const nextHistory = nextHistorySource.slice(0, MAX_METADATA_HISTORY);
+  const trimmedHistory = nextHistorySource.slice(MAX_METADATA_HISTORY);
   const nextCatalog = {
     ...currentCatalog,
     updatedAt: now,
-    metadataHistory: [historyEntry, ...currentCatalog.metadataHistory].slice(0, MAX_METADATA_HISTORY)
+    metadataHistory: nextHistory
   };
 
   if (latestMetadataInput && latestMetadataInput.tempFilePath) {
@@ -634,10 +649,35 @@ async function recordCatalogMetadataDownload(projectCode, catalogPath, historyIn
     updatedAt: now
   };
 
-  return writeProjectState({
+  const persistedState = await writeProjectState({
     ...projectState,
     projects: nextProjects
   });
+
+  const retainedTempPaths = new Set(
+    [nextCatalog.latestMetadataTempPath, ...nextHistory.map((entry) => entry.tempFilePath)]
+      .filter(Boolean)
+  );
+
+  await Promise.all(
+    [...new Set(trimmedHistory.map((entry) => entry.tempFilePath).filter(Boolean))].map((tempFilePath) => {
+      if (retainedTempPaths.has(tempFilePath)) {
+        return Promise.resolve();
+      }
+
+      if (!isPathInsideDirectory(tempFilePath, getCatalogMetadataTempRoot())) {
+        return Promise.resolve();
+      }
+
+      return fs.unlink(tempFilePath).catch((error) => {
+        if (error && error.code !== "ENOENT") {
+          throw error;
+        }
+      });
+    })
+  );
+
+  return persistedState;
 }
 
 async function saveConnection(projectCode, connectionInput, existingConnectionName) {
@@ -757,17 +797,24 @@ async function deleteCatalog(projectCode, catalogPath) {
   }
 
   const catalogToDelete = project.catalogs[catalogIndex];
+  const tempFilePaths = [
+    catalogToDelete.latestMetadataTempPath,
+    ...catalogToDelete.metadataHistory.map((entry) => entry.tempFilePath)
+  ];
 
-  if (
-    catalogToDelete.latestMetadataTempPath &&
-    isPathInsideDirectory(catalogToDelete.latestMetadataTempPath, getCatalogMetadataTempRoot())
-  ) {
-    await fs.unlink(catalogToDelete.latestMetadataTempPath).catch((error) => {
-      if (error && error.code !== "ENOENT") {
-        throw error;
+  await Promise.all(
+    [...new Set(tempFilePaths.filter(Boolean))].map((tempFilePath) => {
+      if (!isPathInsideDirectory(tempFilePath, getCatalogMetadataTempRoot())) {
+        return Promise.resolve();
       }
-    });
-  }
+
+      return fs.unlink(tempFilePath).catch((error) => {
+        if (error && error.code !== "ENOENT") {
+          throw error;
+        }
+      });
+    })
+  );
 
   const nextCatalogs = [...project.catalogs];
   nextCatalogs.splice(catalogIndex, 1);

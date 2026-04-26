@@ -23,7 +23,14 @@ const { downloadBipObject, validateCatalogPath } = require("./bip-catalog-servic
 const hostname = "127.0.0.1";
 const port = Number.parseInt(process.env.PORT || "3000", 10);
 const isDev = process.env.APP_ENV === "development";
-const appIconPath = path.join(app.getAppPath(), "public", "assets", "icons", "chronicle_bi_symbol.ico");
+const appIconPath = path.join(
+  app.getAppPath(),
+  "public",
+  "assets",
+  "icons",
+  "desktop_app_icon_pack",
+  "app_icon_windows.ico"
+);
 
 let mainWindow = null;
 let rendererServer = null;
@@ -37,6 +44,28 @@ function getErrorMessage(error) {
   }
 
   return "Something went wrong. Please try again.";
+}
+
+function findProjectConnection(projectState, projectCode, connectionName) {
+  const normalizedProjectCode = String(projectCode ?? "").trim();
+  const normalizedConnectionName = String(connectionName ?? "").trim().toLowerCase();
+  const project = projectState.projects.find((item) => item.code === normalizedProjectCode);
+
+  if (!project) {
+    return {
+      project: null,
+      connection: null
+    };
+  }
+
+  const connection = project.connections.find(
+    (item) => item.name.trim().toLowerCase() === normalizedConnectionName
+  );
+
+  return {
+    project,
+    connection: connection ?? null
+  };
 }
 
 function getCatalogMetadataTempRoot() {
@@ -94,9 +123,10 @@ async function persistCatalogMetadataTempFile(projectCode, catalogPath, fileName
   };
 }
 
-async function getCachedCatalogMetadata(projectCode, catalogPath) {
+async function getCachedCatalogMetadata(projectCode, catalogPath, historyEntryId) {
   const normalizedProjectCode = String(projectCode ?? "").trim();
   const normalizedCatalogPath = String(catalogPath ?? "").trim();
+  const normalizedHistoryEntryId = String(historyEntryId ?? "").trim();
 
   if (!normalizedProjectCode) {
     throw new Error("Choose a project before opening cached metadata.");
@@ -119,12 +149,22 @@ async function getCachedCatalogMetadata(projectCode, catalogPath) {
     throw new Error("The selected catalog was not found.");
   }
 
-  if (!catalog.latestMetadataTempPath) {
-    throw new Error("No cached metadata JSON is available for this catalog yet.");
+  const selectedHistoryEntry = normalizedHistoryEntryId
+    ? catalog.metadataHistory.find((entry) => entry.id === normalizedHistoryEntryId) ?? null
+    : null;
+
+  if (normalizedHistoryEntryId && !selectedHistoryEntry) {
+    throw new Error("The selected metadata history entry was not found.");
   }
 
   const resolvedRoot = path.resolve(getCatalogMetadataTempRoot());
-  const resolvedFilePath = path.resolve(catalog.latestMetadataTempPath);
+  const requestedFilePath = selectedHistoryEntry?.tempFilePath ?? catalog.latestMetadataTempPath;
+
+  if (!requestedFilePath) {
+    throw new Error("No cached metadata JSON is available for this catalog yet.");
+  }
+
+  const resolvedFilePath = path.resolve(requestedFilePath);
 
   if (!resolvedFilePath.startsWith(`${resolvedRoot}${path.sep}`) && resolvedFilePath !== resolvedRoot) {
     throw new Error("Cached metadata JSON points outside the allowed temp directory.");
@@ -133,13 +173,82 @@ async function getCachedCatalogMetadata(projectCode, catalogPath) {
   const content = await fs.readFile(resolvedFilePath, "utf8");
 
   return {
-    fileName: catalog.latestMetadataFileName ?? path.basename(resolvedFilePath),
+    fileName:
+      selectedHistoryEntry?.fileName ??
+      catalog.latestMetadataFileName ??
+      path.basename(resolvedFilePath),
     filePath: resolvedFilePath,
     projectCode: project.code,
     catalogPath: catalog.path,
-    connectionName: catalog.latestMetadataConnectionName,
-    downloadedAt: catalog.latestMetadataDownloadedAt,
+    connectionName: selectedHistoryEntry?.connectionName || catalog.latestMetadataConnectionName,
+    downloadedAt: selectedHistoryEntry?.completedAt ?? catalog.latestMetadataDownloadedAt,
     content
+  };
+}
+
+function decodeDownloadedCatalogPayload(downloadResult) {
+  const downloadObjectReturn = String(downloadResult?.downloadObjectReturn ?? "");
+
+  if (downloadResult?.metadata?.payload?.transportEncoding === "base64") {
+    return Buffer.from(downloadObjectReturn.replace(/\s+/g, ""), "base64");
+  }
+
+  return Buffer.from(downloadObjectReturn, "utf8");
+}
+
+function getDefaultCatalogDownloadFileName(downloadResult) {
+  const payloadName = String(downloadResult?.metadata?.payload?.rootPayloadName ?? "").trim();
+
+  if (payloadName) {
+    return path.posix.basename(payloadName);
+  }
+
+  const catalogName = path.posix.basename(String(downloadResult?.catalogPath ?? "").replace(/\\/g, "/"));
+  return catalogName || "catalog-download.bin";
+}
+
+function resolveCatalogDownloadFilePath(filePath, defaultFileName) {
+  const targetPath = String(filePath ?? "").trim();
+  const defaultExtension = path.extname(String(defaultFileName ?? "").trim());
+
+  if (!targetPath || path.extname(targetPath) || !defaultExtension) {
+    return targetPath;
+  }
+
+  return `${targetPath}${defaultExtension}`;
+}
+
+async function downloadCatalogToFile(projectCode, connectionName, catalogPath) {
+  const result = await downloadBipObject(projectCode, connectionName, catalogPath);
+  const defaultFileName = getDefaultCatalogDownloadFileName(result);
+  const saveDialogResult = await dialog.showSaveDialog(mainWindow ?? undefined, {
+    title: "Download catalog",
+    defaultPath: defaultFileName
+  });
+
+  if (saveDialogResult.canceled || !saveDialogResult.filePath) {
+    return {
+      canceled: true,
+      filePath: null,
+      fileName: defaultFileName,
+      catalogPath: result.catalogPath,
+      connectionName: result.connectionName
+    };
+  }
+
+  const targetPath = resolveCatalogDownloadFilePath(saveDialogResult.filePath, defaultFileName);
+
+  await fs.mkdir(path.dirname(targetPath), {
+    recursive: true
+  });
+  await fs.writeFile(targetPath, decodeDownloadedCatalogPayload(result));
+
+  return {
+    canceled: false,
+    filePath: targetPath,
+    fileName: path.basename(targetPath),
+    catalogPath: result.catalogPath,
+    connectionName: result.connectionName
   };
 }
 
@@ -226,8 +335,11 @@ function registerIpcHandlers() {
   ipcMain.handle("catalog:validate", (_event, projectCode, connectionName, catalogPath) =>
     validateCatalogPath(projectCode, connectionName, catalogPath)
   );
-  ipcMain.handle("catalog:get-cached-metadata", (_event, projectCode, catalogPath) =>
-    getCachedCatalogMetadata(projectCode, catalogPath)
+  ipcMain.handle("catalog:get-cached-metadata", (_event, projectCode, catalogPath, historyEntryId) =>
+    getCachedCatalogMetadata(projectCode, catalogPath, historyEntryId)
+  );
+  ipcMain.handle("catalog:download-to-file", (_event, projectCode, connectionName, catalogPath) =>
+    downloadCatalogToFile(projectCode, connectionName, catalogPath)
   );
   ipcMain.handle("catalog:delete", (_event, projectCode, catalogPath) =>
     deleteCatalog(projectCode, catalogPath)
@@ -240,6 +352,15 @@ function registerIpcHandlers() {
   );
   ipcMain.handle("bip:download-object", async (_event, projectCode, connectionName, catalogPath) => {
     const requestedAt = new Date().toISOString();
+    let environmentType = null;
+
+    try {
+      const projectState = await readProjectState();
+      const selectedConnection = findProjectConnection(projectState, projectCode, connectionName).connection;
+      environmentType = selectedConnection?.environmentType ?? null;
+    } catch (_error) {
+      environmentType = null;
+    }
 
     try {
       const result = await downloadBipObject(projectCode, connectionName, catalogPath);
@@ -258,7 +379,9 @@ function registerIpcHandlers() {
           completedAt: result.metadata.generatedAt,
           status: "success",
           connectionName,
+          environmentType: result.environmentType,
           fileName: result.metadataFileName,
+          tempFilePath: tempMetadata.filePath,
           detail: "Metadata JSON cached in the temp folder."
         },
         {
@@ -280,7 +403,9 @@ function registerIpcHandlers() {
           completedAt: new Date().toISOString(),
           status: "failed",
           connectionName,
+          environmentType,
           fileName: null,
+          tempFilePath: null,
           detail: getErrorMessage(error)
         });
       } catch (historyError) {

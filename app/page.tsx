@@ -28,28 +28,29 @@ const defaultConnectionForm: ConnectionDraft = {
 
 const connectionUrlPattern = "https://*.fa.ocs.oraclecloud.com";
 const environmentTypeOptions: ReadonlyArray<EnvironmentType> = ["Dev", "Test", "Prod"];
-
-const iconGlyphs = {
-  add: "\uE0AB",
-  open: "\uE04F",
-  manage: "\uE07C",
-  refresh: "\uE033",
-  current: "\uE080",
-  projects: "\uE06C",
-  workspace: "\uE047",
-  application: "\uE06D",
-  platform: "\uE09D",
-  empty: "\uE045"
-} as const;
+const uiIconAssetPath = "/assets/icons/desktop_app_icon_pack/png/app_icon_24x24.png";
 
 type ExplorerSection = "project" | "connections" | "catalogs" | "connection" | "catalog";
 type ExplorerFolderName = "connections" | "catalogs";
 type ConnectionDialogMode = "create" | "edit";
 type CatalogDialogMode = "create";
 type ProjectDialogMode = ProjectMenuAction | "edit-project";
+type CatalogDownloadMode = "metadata" | "catalog";
 type MetadataPreviewTab = "metadata" | "overview";
 type BannerTone = "info" | "success" | "error";
 type ActionButtonTone = "primary" | "secondary" | "ghost" | "danger";
+type AppIconKind =
+  | "add"
+  | "open"
+  | "manage"
+  | "refresh"
+  | "projects"
+  | "connections"
+  | "connection"
+  | "catalogs"
+  | "catalog"
+  | "tool"
+  | "empty";
 
 interface BannerState {
   tone: BannerTone;
@@ -65,7 +66,7 @@ interface ExpandedFolderState {
 interface ActionButtonConfig {
   label: string;
   tone: ActionButtonTone;
-  glyph?: string;
+  icon?: AppIconKind;
   onClick: () => void | Promise<void>;
   disabled?: boolean;
 }
@@ -262,14 +263,18 @@ function renderHighlightedJsonLine(line: string) {
   ));
 }
 
-function RedwoodIcon({
-  glyph,
+function AppIcon({
+  kind,
   className = ""
 }: Readonly<{
-  glyph: string;
+  kind: AppIconKind;
   className?: string;
 }>) {
-  return <span aria-hidden="true" className={`redwood-icon ${className}`.trim()}>{glyph}</span>;
+  return (
+    <span aria-hidden="true" className={`ui-icon ui-icon-${kind} ${className}`.trim()}>
+      <img alt="" className="ui-icon-image" draggable={false} src={uiIconAssetPath} />
+    </span>
+  );
 }
 
 function HamburgerButton({
@@ -354,6 +359,7 @@ export default function HomePage() {
   const [isEditorFocusCollapsed, setIsEditorFocusCollapsed] = useState(false);
   const [catalogDialogErrorMessage, setCatalogDialogErrorMessage] = useState("");
   const [isCatalogDownloadDialogOpen, setIsCatalogDownloadDialogOpen] = useState(false);
+  const [catalogDownloadMode, setCatalogDownloadMode] = useState<CatalogDownloadMode>("metadata");
   const [statusMessage, setStatusMessage] = useState(
     "Use Explorer actions to add a project, open a saved one, or manage the list."
   );
@@ -362,7 +368,7 @@ export default function HomePage() {
   const [activeMetadataTab, setActiveMetadataTab] = useState<MetadataPreviewTab>("metadata");
   const [dialogErrorMessage, setDialogErrorMessage] = useState("");
   const [catalogDownloadErrorMessage, setCatalogDownloadErrorMessage] = useState("");
-  const [catalogDownloadStatusMessage, setCatalogDownloadStatusMessage] = useState(
+  const [, setCatalogDownloadStatusMessage] = useState(
     "Choose a connection and download metadata for the selected catalog path."
   );
   const [connectionBanner, setConnectionBanner] = useState<BannerState>({
@@ -373,7 +379,7 @@ export default function HomePage() {
   const [isCatalogSaving, setIsCatalogSaving] = useState(false);
   const [isCatalogDownloading, setIsCatalogDownloading] = useState(false);
   const [isCatalogDeleting, setIsCatalogDeleting] = useState(false);
-  const [isCachedMetadataLoading, setIsCachedMetadataLoading] = useState(false);
+  const [openingMetadataEntryId, setOpeningMetadataEntryId] = useState<string | null>(null);
   const [isMetadataJsonDownloading, setIsMetadataJsonDownloading] = useState(false);
   const [isConnectionSaving, setIsConnectionSaving] = useState(false);
   const [isConnectionDeleting, setIsConnectionDeleting] = useState(false);
@@ -414,7 +420,6 @@ export default function HomePage() {
   const metadataPreviewLines = metadataPreview ? metadataPreview.content.split("\n") : [];
   const isMetadataSectionVisible = Boolean(metadataPreview && isMetadataPreviewOpen);
   const selectedCatalogHistory = selectedCatalog?.metadataHistory ?? [];
-  const canOpenCachedMetadata = Boolean(selectedCatalog?.latestMetadataTempPath);
   const metadataOverviewItems =
     metadataPreview
       ? [
@@ -481,11 +486,19 @@ export default function HomePage() {
     setIsMetadataPreviewOpen(true);
   }
 
-  async function openCachedCatalogMetadata(projectCode: string, catalogPath: string) {
-    setIsCachedMetadataLoading(true);
+  async function openCachedCatalogMetadata(
+    projectCode: string,
+    catalogPath: string,
+    historyEntryId?: string | null
+  ) {
+    setOpeningMetadataEntryId(historyEntryId ?? "__latest__");
 
     try {
-      const cachedMetadata = await window.electronAPI.getCachedCatalogMetadata(projectCode, catalogPath);
+      const cachedMetadata = await window.electronAPI.getCachedCatalogMetadata(
+        projectCode,
+        catalogPath,
+        historyEntryId ?? null
+      );
       const parsedMetadata = JSON.parse(cachedMetadata.content) as BipDownloadMetadata;
 
       openMetadataPreview(
@@ -503,7 +516,7 @@ export default function HomePage() {
     } catch (error) {
       setStatusMessage(getErrorMessage(error));
     } finally {
-      setIsCachedMetadataLoading(false);
+      setOpeningMetadataEntryId(null);
     }
   }
 
@@ -801,7 +814,10 @@ export default function HomePage() {
     setIsBusy(false);
   }
 
-  function openCatalogDownloadDialog(catalogPath?: string) {
+  function openCatalogDownloadDialog(
+    catalogPath?: string,
+    mode: CatalogDownloadMode = "metadata"
+  ) {
     if (!selectedProject) {
       return;
     }
@@ -822,11 +838,16 @@ export default function HomePage() {
       connectionName: initialConnectionName,
       catalogPath: nextCatalogPath
     });
+    setCatalogDownloadMode(mode);
     setCatalogDownloadErrorMessage("");
     setCatalogDownloadStatusMessage(
       selectedProject.connections.length > 0
-        ? `Download metadata for ${getCatalogDisplayName(nextCatalogPath)} from ${selectedProject.name}.`
-        : `Add a saved connection in ${selectedProject.name} before downloading catalog metadata.`
+        ? `${
+            mode === "catalog" ? "Download the catalog" : "Download metadata"
+          } for ${getCatalogDisplayName(nextCatalogPath)} from ${selectedProject.name}.`
+        : `Add a saved connection in ${selectedProject.name} before downloading ${
+            mode === "catalog" ? "the catalog" : "catalog metadata"
+          }.`
     );
     setIsCatalogDownloadDialogOpen(true);
   }
@@ -837,6 +858,7 @@ export default function HomePage() {
     }
 
     setIsCatalogDownloadDialogOpen(false);
+    setCatalogDownloadMode("metadata");
     setCatalogDownloadForm(defaultCatalogDownloadForm);
     setCatalogDownloadErrorMessage("");
     setCatalogDownloadStatusMessage(
@@ -1375,9 +1397,11 @@ export default function HomePage() {
 
   async function handleDownloadCatalogMetadata(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const isCatalogFileDownload = catalogDownloadMode === "catalog";
+    const actionLabel = isCatalogFileDownload ? "catalog" : "metadata";
 
     if (!selectedProject) {
-      setCatalogDownloadErrorMessage("Choose a project before downloading metadata.");
+      setCatalogDownloadErrorMessage(`Choose a project before downloading ${actionLabel}.`);
       return;
     }
 
@@ -1401,29 +1425,46 @@ export default function HomePage() {
         catalogDownloadForm.connectionName,
         catalogDownloadForm.catalogPath.trim()
       );
-      setCatalogDownloadStatusMessage("Downloading the catalog and generating metadata JSON...");
-      const result = await window.electronAPI.downloadBipObject(
-        selectedProject.code,
-        catalogDownloadForm.connectionName,
-        catalogDownloadForm.catalogPath.trim()
-      );
-      openMetadataPreview(
-        createMetadataPreviewState({
-          fileName: result.metadataFileName,
-          catalogPath: result.catalogPath,
-          connectionName: catalogDownloadForm.connectionName,
-          projectCode: selectedProject.code,
-          metadata: result.metadata,
-          downloadedAt: result.metadata.generatedAt
-        })
-      );
-      await refreshProjectState();
-      setStatusMessage(`Metadata JSON for ${result.catalogPath} is ready.`);
-      setCatalogDownloadStatusMessage(
-        "Catalog downloaded and metadata JSON is ready in the preview panel."
-      );
-      setIsCatalogDownloadDialogOpen(false);
-      setCatalogDownloadForm(defaultCatalogDownloadForm);
+      if (isCatalogFileDownload) {
+        const result = await window.electronAPI.downloadCatalogToFile(
+          selectedProject.code,
+          catalogDownloadForm.connectionName,
+          catalogDownloadForm.catalogPath.trim()
+        );
+
+        if (result.canceled) {
+          setStatusMessage(`Catalog download for ${catalogDownloadForm.catalogPath.trim()} was canceled.`);
+        } else {
+          setStatusMessage(`Catalog downloaded to ${result.filePath}.`);
+          setIsCatalogDownloadDialogOpen(false);
+          setCatalogDownloadForm(defaultCatalogDownloadForm);
+          setCatalogDownloadMode("metadata");
+        }
+      } else {
+        setCatalogDownloadStatusMessage("Downloading the catalog and generating metadata JSON...");
+        const result = await window.electronAPI.downloadBipObject(
+          selectedProject.code,
+          catalogDownloadForm.connectionName,
+          catalogDownloadForm.catalogPath.trim()
+        );
+        openMetadataPreview(
+          createMetadataPreviewState({
+            fileName: result.metadataFileName,
+            catalogPath: result.catalogPath,
+            connectionName: catalogDownloadForm.connectionName,
+            projectCode: selectedProject.code,
+            metadata: result.metadata,
+            downloadedAt: result.metadata.generatedAt
+          })
+        );
+        await refreshProjectState();
+        setStatusMessage(`Metadata JSON for ${result.catalogPath} is ready.`);
+        setCatalogDownloadStatusMessage(
+          "Catalog downloaded and metadata JSON is ready in the preview panel."
+        );
+        setIsCatalogDownloadDialogOpen(false);
+        setCatalogDownloadForm(defaultCatalogDownloadForm);
+      }
     } catch (error) {
       try {
         await refreshProjectState();
@@ -1441,29 +1482,38 @@ export default function HomePage() {
     window.location.href = "/compare";
   }
 
+  function openDownloadCatalogTool() {
+    if (!selectedProject || !selectedCatalog) {
+      setStatusMessage("Select a catalog item before downloading a catalog.");
+      return;
+    }
+
+    openCatalogDownloadDialog(selectedCatalog.path, "catalog");
+  }
+
   const explorerMenuActions: ActionButtonConfig[] = [
     {
       label: "Add Project",
       tone: "primary",
-      glyph: iconGlyphs.add,
+      icon: "add",
       onClick: () => openDialog("add-project")
     },
     {
       label: "Open Projects",
       tone: "secondary",
-      glyph: iconGlyphs.open,
+      icon: "open",
       onClick: () => openDialog("open-project")
     },
     {
       label: "Manage Projects",
       tone: "ghost",
-      glyph: iconGlyphs.manage,
+      icon: "manage",
       onClick: () => openDialog("manage-projects")
     },
     {
       label: "Refresh",
       tone: "ghost",
-      glyph: iconGlyphs.refresh,
+      icon: "refresh",
       onClick: handleRefresh
     }
   ];
@@ -1483,13 +1533,13 @@ export default function HomePage() {
         {
           label: "Add Project",
           tone: "primary",
-          glyph: iconGlyphs.add,
+          icon: "add",
           onClick: () => openDialog("add-project")
         },
         {
           label: "Open Projects",
           tone: "secondary",
-          glyph: iconGlyphs.open,
+          icon: "open",
           onClick: () => openDialog("open-project"),
           disabled: projectState.projects.length === 0
         }
@@ -1501,13 +1551,14 @@ export default function HomePage() {
         {
           label: isCatalogDownloading ? "Downloading..." : "Download Metadata",
           tone: "primary",
-          glyph: iconGlyphs.open,
+          icon: "catalog",
           onClick: () => openCatalogDownloadDialog(selectedCatalog.path),
           disabled: selectedProject.connections.length === 0 || isCatalogDownloading
         },
         {
           label: isCatalogDeleting ? "Deleting..." : "Delete Catalog",
           tone: "danger",
+          icon: "catalog",
           onClick: () => requestDeleteCatalog(selectedProject.code, selectedCatalog.path),
           disabled: isCatalogDownloading || isCatalogDeleting
         }
@@ -1519,13 +1570,14 @@ export default function HomePage() {
         {
           label: "Edit Connection",
           tone: "primary",
-          glyph: iconGlyphs.open,
+          icon: "connection",
           onClick: () => beginEditConnection(selectedProject.code, selectedConnection.name),
           disabled: isConnectionDeleting
         },
         {
           label: isConnectionDeleting ? "Deleting..." : "Delete Connection",
           tone: "danger",
+          icon: "connection",
           onClick: () => requestDeleteConnection(selectedProject.code, selectedConnection.name),
           disabled: isConnectionDeleting
         }
@@ -1537,7 +1589,7 @@ export default function HomePage() {
         {
           label: "Add Catalog Path",
           tone: "primary",
-          glyph: iconGlyphs.add,
+          icon: "catalog",
           onClick: () => beginNewCatalog(selectedProject.code)
         }
       ];
@@ -1548,7 +1600,7 @@ export default function HomePage() {
         {
           label: "Add Connection",
           tone: "primary",
-          glyph: iconGlyphs.add,
+          icon: "connection",
           onClick: () => beginNewConnection(selectedProject.code)
         }
       ];
@@ -1558,13 +1610,14 @@ export default function HomePage() {
       {
         label: "Edit Project",
         tone: "primary",
-        glyph: iconGlyphs.manage,
+        icon: "projects",
         onClick: () => openProjectEditDialog(selectedProject.code),
         disabled: isBusy
       },
       {
         label: isBusy ? "Deleting..." : "Delete Project",
         tone: "danger",
+        icon: "projects",
         onClick: () => requestDeleteProject(selectedProject.code),
         disabled: isBusy
       }
@@ -1648,6 +1701,10 @@ export default function HomePage() {
 
     return metrics;
   })();
+  const catalogDownloadDialogTitle =
+    catalogDownloadMode === "catalog" ? "Download Catalog" : "Download Metadata";
+  const catalogDownloadButtonLabel =
+    catalogDownloadMode === "catalog" ? "Download Catalog" : "Download Metadata";
 
   return (
     <main className="workspace-shell">
@@ -1666,6 +1723,7 @@ export default function HomePage() {
                 onClick={() => setIsExplorerActionMenuOpen((current) => !current)}
                 type="button"
               >
+                <AppIcon className="button-icon" kind="manage" />
                 Actions
               </button>
 
@@ -1680,7 +1738,7 @@ export default function HomePage() {
                       role="menuitem"
                       type="button"
                     >
-                      {action.glyph ? <RedwoodIcon className="button-icon" glyph={action.glyph} /> : null}
+                      {action.icon ? <AppIcon className="button-icon" kind={action.icon} /> : null}
                       {action.label}
                     </button>
                   ))}
@@ -1695,7 +1753,7 @@ export default function HomePage() {
                 <div className="empty-state tree-empty-state">
                   <div className="empty-copy">
                     <span className="icon-badge subtle-icon-badge">
-                      <RedwoodIcon glyph={iconGlyphs.empty} />
+                      <AppIcon kind="empty" />
                     </span>
                     <div>
                       <h4>No projects have been added yet</h4>
@@ -1717,7 +1775,6 @@ export default function HomePage() {
                     const folderState = expandedProjectFolders[project.code] ?? getDefaultExpandedFolders();
                     const isConnectionsExpanded = folderState.connections;
                     const isCatalogsExpanded = folderState.catalogs;
-                    const catalogCount = getProjectCatalogCount(project);
 
                     return (
                       <div className="tree-group" key={project.code}>
@@ -1739,16 +1796,11 @@ export default function HomePage() {
                             type="button"
                           >
                             <span className="tree-node-leading">
-                              <RedwoodIcon className="tree-node-icon" glyph={iconGlyphs.projects} />
+                              <AppIcon className="tree-node-icon" kind="projects" />
                             </span>
 
                             <span className="tree-node-copy">
                               <span className="tree-node-title">{project.name}</span>
-                              <span className="tree-node-meta">
-                                {project.code} . {formatConnectionCount(project.connections.length)} .{" "}
-                                {formatCatalogCount(catalogCount)}
-                                {isCurrentProject ? " . current" : ""}
-                              </span>
                             </span>
                           </button>
                         </div>
@@ -1775,17 +1827,11 @@ export default function HomePage() {
                                 type="button"
                               >
                                 <span className="tree-node-leading">
-                                  <span
-                                    aria-hidden="true"
-                                    className={`tree-folder-icon${isConnectionsExpanded ? " is-open" : ""}`}
-                                  />
+                                  <AppIcon className="tree-node-icon" kind="connections" />
                                 </span>
 
                                 <span className="tree-node-copy">
                                   <span className="tree-node-title">Connections</span>
-                                  <span className="tree-node-meta">
-                                    {formatConnectionCount(project.connections.length)}
-                                  </span>
                                 </span>
                               </button>
                             </div>
@@ -1812,12 +1858,11 @@ export default function HomePage() {
                                           type="button"
                                         >
                                           <span className="tree-node-leading">
-                                            <span aria-hidden="true" className="tree-item-icon" />
+                                            <AppIcon className="tree-node-icon" kind="connection" />
                                           </span>
 
                                           <span className="tree-node-copy">
                                             <span className="tree-node-title">{connection.name}</span>
-                                            <span className="tree-node-meta">{connection.username}</span>
                                           </span>
                                         </button>
                                       </div>
@@ -1847,17 +1892,11 @@ export default function HomePage() {
                                 type="button"
                               >
                                 <span className="tree-node-leading">
-                                  <span
-                                    aria-hidden="true"
-                                    className={`tree-folder-icon catalogs-folder-icon${
-                                      isCatalogsExpanded ? " is-open" : ""
-                                    }`}
-                                  />
+                                  <AppIcon className="tree-node-icon" kind="catalogs" />
                                 </span>
 
                                 <span className="tree-node-copy">
                                   <span className="tree-node-title">Catalogs</span>
-                                  <span className="tree-node-meta">{formatCatalogCount(catalogCount)}</span>
                                 </span>
                               </button>
                             </div>
@@ -1884,12 +1923,11 @@ export default function HomePage() {
                                           type="button"
                                         >
                                           <span className="tree-node-leading">
-                                            <span aria-hidden="true" className="tree-item-icon catalog-item-icon" />
+                                            <AppIcon className="tree-node-icon" kind="catalog" />
                                           </span>
 
                                           <span className="tree-node-copy">
                                             <span className="tree-node-title">{getCatalogDisplayName(catalog.path)}</span>
-                                            <span className="tree-node-meta">{catalog.path}</span>
                                           </span>
                                         </button>
                                       </div>
@@ -1909,9 +1947,26 @@ export default function HomePage() {
             <section aria-label="Explorer tools" className="explorer-tools-panel">
               <p className="section-label">Tools</p>
               <button className="explorer-tool-card" onClick={openComparePage} type="button">
-                <span className="explorer-tool-title">Compare bundles</span>
+                <span className="explorer-tool-heading">
+                  <AppIcon className="explorer-tool-icon" kind="tool" />
+                  <span className="explorer-tool-title">Compare bundles</span>
+                </span>
                 <span className="explorer-tool-description">
                   Compare two bundle folders side by side and review the differences.
+                </span>
+              </button>
+              <button
+                className="explorer-tool-card"
+                disabled={!selectedCatalog}
+                onClick={openDownloadCatalogTool}
+                type="button"
+              >
+                <span className="explorer-tool-heading">
+                  <AppIcon className="explorer-tool-icon" kind="catalog" />
+                  <span className="explorer-tool-title">Download catalog</span>
+                </span>
+                <span className="explorer-tool-description">
+                  Save the selected catalog payload to a local file.
                 </span>
               </button>
             </section>
@@ -1929,7 +1984,7 @@ export default function HomePage() {
             <article className="surface masthead-card workspace-summary-card metadata-preview-card">
               <div className="metadata-preview-actions">
                 <button
-                  className="secondary-button compact-button"
+                  className="primary-button compact-button"
                   disabled={isMetadataJsonDownloading}
                   onClick={downloadMetadataPreviewJson}
                   type="button"
@@ -1937,7 +1992,7 @@ export default function HomePage() {
                   {isMetadataJsonDownloading ? "Downloading..." : "Download JSON"}
                 </button>
                 <button
-                  className="ghost-button compact-button"
+                  className="neutral-button compact-button"
                   onClick={closeMetadataPreview}
                   type="button"
                 >
@@ -2024,6 +2079,23 @@ export default function HomePage() {
               id="editor-focus-panel"
             >
               <div className="editor-focus-body">
+                {selectedCatalog && editorFocusActions.length > 0 ? (
+                  <div className="editor-focus-actions" role="toolbar" aria-label="Editor focus actions">
+                    {editorFocusActions.map((action) => (
+                      <button
+                        className={`${getActionButtonClassName(action.tone)} compact-button`}
+                        disabled={action.disabled}
+                        key={`${action.tone}-${action.label}`}
+                        onClick={action.onClick}
+                        type="button"
+                      >
+                        {action.icon ? <AppIcon className="button-icon" kind={action.icon} /> : null}
+                        {action.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+
                 <div className="meta-list editor-focus-metrics">
                   {editorFocusMetrics.map((metric) => (
                     <div className="meta-item" key={metric.label}>
@@ -2034,41 +2106,43 @@ export default function HomePage() {
                 </div>
 
                 {selectedCatalog ? (
+                  <>
+                    <div className="editor-focus-divider" />
                   <section className="editor-focus-history" aria-label="Metadata history">
-                    <div className="editor-focus-history-header">
-                      <h3 className="section-label">History</h3>
-                      {canOpenCachedMetadata ? (
-                        <button
-                          className="ghost-button compact-button"
-                          disabled={!selectedProject || isCachedMetadataLoading}
-                          onClick={() => {
-                            if (selectedProject) {
-                              void openCachedCatalogMetadata(selectedProject.code, selectedCatalog.path);
-                            }
-                          }}
-                          type="button"
-                        >
-                          {isCachedMetadataLoading ? "Opening..." : "Open Cached"}
-                        </button>
-                      ) : null}
-                    </div>
+                    <h3 className="section-label">History</h3>
 
                     {selectedCatalogHistory.length > 0 ? (
                       <div className="editor-focus-history-list">
-                        {selectedCatalogHistory.slice(0, 10).map((entry) => (
+                        {selectedCatalogHistory.map((entry) => (
                           <article className="editor-focus-history-item" key={entry.id}>
                             <div className="editor-focus-history-item-top">
                               <span className={`history-status-pill is-${entry.status}`}>
                                 {entry.status === "success" ? "Success" : "Failed"}
                               </span>
-                              <span className="editor-focus-history-time">
-                                {formatTimestamp(entry.completedAt)}
-                              </span>
+                              <button
+                                className="secondary-button compact-button history-open-button"
+                                disabled={
+                                  !selectedProject ||
+                                  !entry.tempFilePath ||
+                                  (openingMetadataEntryId !== null && openingMetadataEntryId !== entry.id)
+                                }
+                                onClick={() => {
+                                  if (selectedProject) {
+                                    void openCachedCatalogMetadata(
+                                      selectedProject.code,
+                                      selectedCatalog.path,
+                                      entry.id
+                                    );
+                                  }
+                                }}
+                                type="button"
+                              >
+                                {openingMetadataEntryId === entry.id ? "Opening..." : "Open"}
+                              </button>
                             </div>
-                            <p className="editor-focus-history-detail">{entry.detail}</p>
                             <div className="editor-focus-history-meta">
-                              <span>{entry.connectionName || "Unavailable"}</span>
-                              {entry.fileName ? <span>{entry.fileName}</span> : null}
+                              <span>{formatTimestamp(entry.completedAt)}</span>
+                              <span>{entry.environmentType ?? "Unavailable"}</span>
                             </div>
                           </article>
                         ))}
@@ -2078,10 +2152,12 @@ export default function HomePage() {
                         No metadata download attempts recorded for this catalog.
                       </p>
                     )}
+                    <p className="editor-focus-history-note">Showing the latest 10 entries.</p>
                   </section>
+                  </>
                 ) : null}
 
-                {editorFocusActions.length > 0 ? (
+                {!selectedCatalog && editorFocusActions.length > 0 ? (
                   <div className="editor-focus-actions" role="toolbar" aria-label="Editor focus actions">
                     {editorFocusActions.map((action) => (
                       <button
@@ -2091,9 +2167,7 @@ export default function HomePage() {
                         onClick={action.onClick}
                         type="button"
                       >
-                        {action.glyph ? (
-                          <RedwoodIcon className="button-icon" glyph={action.glyph} />
-                        ) : null}
+                        {action.icon ? <AppIcon className="button-icon" kind={action.icon} /> : null}
                         {action.label}
                       </button>
                     ))}
@@ -2121,29 +2195,13 @@ export default function HomePage() {
             <div className="dialog-header">
               <div className="dialog-title">
                 <span className="icon-badge">
-                  <RedwoodIcon
-                    glyph={connectionDialogMode === "edit" ? iconGlyphs.open : iconGlyphs.add}
-                  />
+                  <AppIcon kind={connectionDialogMode === "edit" ? "connection" : "add"} />
                 </span>
-                <div>
-                  <p className="section-label">
-                    {connectionDialogMode === "edit" ? "Edit connection" : "Add connection"}
-                  </p>
-                  <h4>
-                    {connectionDialogMode === "edit"
-                      ? `Update ${selectedConnection?.name ?? "selected connection"}`
-                      : `Create a connection in ${selectedProject.name}`}
-                  </h4>
-                  <p className="dialog-copy">
-                    {connectionDialogMode === "edit"
-                      ? `Update the saved connection inside ${selectedProject.name}.`
-                      : `Add a new saved endpoint inside ${selectedProject.name}.`}
-                  </p>
-                </div>
+                <h4>{connectionDialogMode === "edit" ? "Edit connection" : "Add connection"}</h4>
               </div>
 
               <button
-                className="ghost-button compact-button"
+                className="neutral-button compact-button"
                 disabled={isConnectionSaving || isConnectionDeleting}
                 onClick={closeConnectionDialog}
                 type="button"
@@ -2153,10 +2211,9 @@ export default function HomePage() {
             </div>
 
             <form className="form-grid connection-form connection-modal-form" onSubmit={handleSaveConnection}>
-              <div className={`inline-banner tone-${connectionBanner.tone}`}>
-                <p>{connectionBanner.message}</p>
-                {connectionBanner.detail ? <small>{connectionBanner.detail}</small> : null}
-              </div>
+              {connectionBanner.tone === "error" ? (
+                <p className="error-banner">{connectionBanner.message}</p>
+              ) : null}
 
               <div className="field-row">
                 <label className="field">
@@ -2171,7 +2228,6 @@ export default function HomePage() {
                     }
                     placeholder="Finance Warehouse"
                   />
-                  <small>Keep the name unique inside {selectedProject.name}.</small>
                 </label>
 
                 <label className="field">
@@ -2208,7 +2264,6 @@ export default function HomePage() {
                   placeholder={connectionUrlPattern}
                   title={`URL must match the pattern ${connectionUrlPattern}.`}
                 />
-                <small>URL must match the pattern {connectionUrlPattern}.</small>
               </label>
 
               <div className="field-row">
@@ -2264,7 +2319,7 @@ export default function HomePage() {
                   </button>
                 ) : null}
                 <button
-                  className="ghost-button compact-button"
+                  className="neutral-button compact-button"
                   disabled={isConnectionSaving || isConnectionDeleting}
                   onClick={closeConnectionDialog}
                   type="button"
@@ -2289,19 +2344,13 @@ export default function HomePage() {
             <div className="dialog-header">
               <div className="dialog-title">
                 <span className="icon-badge">
-                  <RedwoodIcon glyph={iconGlyphs.add} />
+                  <AppIcon kind="catalog" />
                 </span>
-                <div>
-                  <p className="section-label">Add catalog path</p>
-                  <h4>Create a saved catalog path in {selectedProject.name}</h4>
-                  <p className="dialog-copy">
-                    Choose a saved connection, validate the catalog path through CatalogService, then save it for later metadata download.
-                  </p>
-                </div>
+                <h4>Add catalog path</h4>
               </div>
 
               <button
-                className="ghost-button compact-button"
+                className="neutral-button compact-button"
                 disabled={isCatalogSaving}
                 onClick={closeCatalogDialog}
                 type="button"
@@ -2334,7 +2383,6 @@ export default function HomePage() {
                     </option>
                   ))}
                 </select>
-                <small>Choose the saved connection used to validate this catalog path.</small>
               </label>
 
               <label className="field">
@@ -2349,10 +2397,6 @@ export default function HomePage() {
                   }
                   placeholder="/Custom/Financials/TrialBalance"
                 />
-                <small>
-                  Use the absolute catalog path, keep it unique inside {selectedProject.name}, and it
-                  will be verified before save.
-                </small>
               </label>
 
               <div className="dialog-actions modal-form-actions">
@@ -2364,7 +2408,7 @@ export default function HomePage() {
                   {isCatalogSaving ? "Saving..." : "Save catalog path"}
                 </button>
                 <button
-                  className="ghost-button compact-button"
+                  className="neutral-button compact-button"
                   disabled={isCatalogSaving}
                   onClick={closeCatalogDialog}
                   type="button"
@@ -2383,25 +2427,19 @@ export default function HomePage() {
             className="surface dialog-shell connection-dialog-shell"
             role="dialog"
             aria-modal="true"
-            aria-label="Download catalog metadata"
+            aria-label={catalogDownloadDialogTitle}
             onClick={(event) => event.stopPropagation()}
           >
             <div className="dialog-header">
               <div className="dialog-title">
                 <span className="icon-badge">
-                  <RedwoodIcon glyph={iconGlyphs.open} />
+                  <AppIcon kind={catalogDownloadMode === "catalog" ? "catalog" : "open"} />
                 </span>
-                <div>
-                  <p className="section-label">Download metadata</p>
-                  <h4>{getCatalogDisplayName(catalogDownloadForm.catalogPath || selectedProject.name)}</h4>
-                  <p className="dialog-copy">
-                    Validate the selected catalog through CatalogService, download it, generate metadata JSON, and cache it for preview.
-                  </p>
-                </div>
+                <h4>{catalogDownloadDialogTitle}</h4>
               </div>
 
               <button
-                className="ghost-button compact-button"
+                className="neutral-button compact-button"
                 disabled={isCatalogDownloading}
                 onClick={closeCatalogDownloadDialog}
                 type="button"
@@ -2411,13 +2449,6 @@ export default function HomePage() {
             </div>
 
             <form className="form-grid connection-form connection-modal-form" onSubmit={handleDownloadCatalogMetadata}>
-              <div className="inline-banner tone-info">
-                <p>{catalogDownloadStatusMessage}</p>
-                <small>
-                  A project copy is still saved under `BIPJSON`, even when you also export JSON elsewhere.
-                </small>
-              </div>
-
               {catalogDownloadErrorMessage ? <p className="error-banner">{catalogDownloadErrorMessage}</p> : null}
 
               <label className="field">
@@ -2449,7 +2480,6 @@ export default function HomePage() {
                   value={catalogDownloadForm.catalogPath}
                   readOnly
                 />
-                <small>This path comes from the selected saved catalog item.</small>
               </label>
 
               <div className="dialog-actions modal-form-actions">
@@ -2458,10 +2488,10 @@ export default function HomePage() {
                   disabled={selectedProject.connections.length === 0 || isCatalogDownloading}
                   type="submit"
                 >
-                  {isCatalogDownloading ? "Downloading..." : "Download Metadata"}
+                  {isCatalogDownloading ? "Downloading..." : catalogDownloadButtonLabel}
                 </button>
                 <button
-                  className="ghost-button compact-button"
+                  className="neutral-button compact-button"
                   disabled={isCatalogDownloading}
                   onClick={closeCatalogDownloadDialog}
                   type="button"
@@ -2494,50 +2524,28 @@ export default function HomePage() {
             <div className="dialog-header">
               <div className="dialog-title">
                 <span className="icon-badge">
-                  <RedwoodIcon
-                    glyph={
+                  <AppIcon
+                    kind={
                       dialogMode === "add-project"
-                        ? iconGlyphs.add
-                        : dialogMode === "edit-project"
-                          ? iconGlyphs.manage
+                        ? "add"
                         : dialogMode === "open-project"
-                          ? iconGlyphs.open
-                          : iconGlyphs.manage
+                          ? "open"
+                          : "manage"
                     }
                   />
                 </span>
-                <div>
-                  <p className="section-label">
-                    {dialogMode === "add-project"
-                      ? "Add project"
-                      : dialogMode === "edit-project"
-                        ? "Edit project"
-                      : dialogMode === "open-project"
-                        ? "Open project"
-                        : "Manage projects"}
-                  </p>
-                  <h4>
-                    {dialogMode === "add-project"
-                      ? "Create a new project entry"
-                      : dialogMode === "edit-project"
-                        ? `Update ${projectForm.code || "the selected project"}`
-                      : dialogMode === "open-project"
-                        ? "Choose a project to make current"
-                        : "Review and delete saved projects"}
-                  </h4>
-                  <p className="dialog-copy">
-                    {dialogMode === "add-project"
-                      ? "Keep the entry concise and use a unique project code."
-                      : dialogMode === "edit-project"
-                        ? "Update the project name and description without changing its saved code."
-                      : dialogMode === "open-project"
-                        ? "Select a project from the saved list and make it the current workspace."
-                        : "Delete only the projects you no longer need to keep in the local list."}
-                  </p>
-                </div>
+                <h4>
+                  {dialogMode === "add-project"
+                    ? "Add project"
+                    : dialogMode === "edit-project"
+                      ? "Edit project"
+                    : dialogMode === "open-project"
+                      ? "Open project"
+                      : "Manage projects"}
+                </h4>
               </div>
 
-              <button className="ghost-button compact-button" onClick={closeDialog}>
+              <button className="neutral-button compact-button" onClick={closeDialog} type="button">
                 Close
               </button>
             </div>
@@ -2562,7 +2570,6 @@ export default function HomePage() {
                     }
                     placeholder="PRJ-001"
                   />
-                  <small>Use a short code that stays unique across saved projects.</small>
                 </label>
 
                 <label className="field">
@@ -2596,10 +2603,7 @@ export default function HomePage() {
 
                 <div className="dialog-actions">
                   <button className="primary-button" type="submit" disabled={isBusy}>
-                    <RedwoodIcon
-                      className="button-icon"
-                      glyph={dialogMode === "edit-project" ? iconGlyphs.manage : iconGlyphs.add}
-                    />
+                    <AppIcon className="button-icon" kind={dialogMode === "edit-project" ? "manage" : "add"} />
                     {isBusy
                       ? dialogMode === "edit-project"
                         ? "Saving..."
@@ -2621,7 +2625,7 @@ export default function HomePage() {
                       Delete project
                     </button>
                   ) : null}
-                  <button className="ghost-button" type="button" onClick={closeDialog}>
+                  <button className="neutral-button" type="button" onClick={closeDialog}>
                     Cancel
                   </button>
                 </div>
@@ -2659,10 +2663,10 @@ export default function HomePage() {
 
                   <div className="dialog-actions">
                     <button className="primary-button" onClick={() => handleOpenProject()} disabled={isBusy}>
-                      <RedwoodIcon className="button-icon" glyph={iconGlyphs.open} />
+                      <AppIcon className="button-icon" kind="open" />
                       {isBusy ? "Opening..." : "Open project"}
                     </button>
-                    <button className="ghost-button" onClick={closeDialog}>
+                    <button className="neutral-button" onClick={closeDialog} type="button">
                       Cancel
                     </button>
                   </div>
@@ -2671,7 +2675,7 @@ export default function HomePage() {
                 <div className="empty-state compact-empty-state">
                   <div className="empty-copy">
                     <span className="icon-badge subtle-icon-badge">
-                      <RedwoodIcon glyph={iconGlyphs.empty} />
+                      <AppIcon kind="empty" />
                     </span>
                     <div>
                       <h4>No saved projects exist yet</h4>
@@ -2684,8 +2688,9 @@ export default function HomePage() {
                       setDialogMode("add-project");
                       setProjectForm(defaultProjectForm);
                     }}
+                    type="button"
                   >
-                    <RedwoodIcon className="button-icon" glyph={iconGlyphs.add} />
+                    <AppIcon className="button-icon" kind="add" />
                     Add project
                   </button>
                 </div>
@@ -2714,13 +2719,15 @@ export default function HomePage() {
                         <button
                           className="secondary-button compact-button"
                           onClick={() => handleOpenProject(project.code)}
+                          type="button"
                         >
-                          <RedwoodIcon className="button-icon" glyph={iconGlyphs.open} />
+                          <AppIcon className="button-icon" kind="open" />
                           Open
                         </button>
                         <button
                           className="danger-button compact-button"
                           onClick={() => requestDeleteProject(project.code)}
+                          type="button"
                         >
                           Delete
                         </button>
@@ -2732,7 +2739,7 @@ export default function HomePage() {
                 <div className="empty-state compact-empty-state">
                   <div className="empty-copy">
                     <span className="icon-badge subtle-icon-badge">
-                      <RedwoodIcon glyph={iconGlyphs.empty} />
+                      <AppIcon kind="empty" />
                     </span>
                     <div>
                       <h4>There are no projects to manage yet</h4>
@@ -2755,18 +2762,13 @@ export default function HomePage() {
             aria-label="Delete project"
             onClick={(event) => event.stopPropagation()}
           >
-            <p className="section-label">Delete project</p>
             <h4>Remove {pendingDeleteProject.name} from the saved list?</h4>
-            <p className="dialog-copy">
-              This deletes the local project entry for <strong>{pendingDeleteProject.code}</strong>.
-              If it is current, the next saved project becomes current automatically.
-            </p>
 
             <div className="dialog-actions">
               <button className="danger-button" onClick={confirmDeleteProject} disabled={isBusy}>
                 {isBusy ? "Deleting..." : "Delete project"}
               </button>
-              <button className="ghost-button" onClick={closeDeleteDialog}>
+              <button className="neutral-button" onClick={closeDeleteDialog} type="button">
                 Cancel
               </button>
             </div>
@@ -2783,13 +2785,7 @@ export default function HomePage() {
             aria-label="Delete connection"
             onClick={(event) => event.stopPropagation()}
           >
-            <p className="section-label">Delete connection</p>
             <h4>Remove {pendingDeleteConnectionDetails.name} from this project?</h4>
-            <p className="dialog-copy">
-              This removes the saved connection from{" "}
-              <strong>{pendingDeleteConnection.projectCode}</strong>. You can add it back later if
-              needed.
-            </p>
 
             <div className="dialog-actions">
               <button
@@ -2799,7 +2795,7 @@ export default function HomePage() {
               >
                 {isConnectionDeleting ? "Deleting..." : "Delete connection"}
               </button>
-              <button className="ghost-button" onClick={closeDeleteConnectionDialog}>
+              <button className="neutral-button" onClick={closeDeleteConnectionDialog} type="button">
                 Cancel
               </button>
             </div>
@@ -2816,12 +2812,7 @@ export default function HomePage() {
             aria-label="Delete catalog"
             onClick={(event) => event.stopPropagation()}
           >
-            <p className="section-label">Delete catalog</p>
             <h4>Remove {getCatalogDisplayName(pendingDeleteCatalogDetails.path)} from this project?</h4>
-            <p className="dialog-copy">
-              This removes the saved catalog path from{" "}
-              <strong>{pendingDeleteCatalog.projectCode}</strong>. You can add it back later if needed.
-            </p>
 
             <div className="dialog-actions">
               <button
@@ -2831,7 +2822,7 @@ export default function HomePage() {
               >
                 {isCatalogDeleting ? "Deleting..." : "Delete catalog"}
               </button>
-              <button className="ghost-button" onClick={closeDeleteCatalogDialog}>
+              <button className="neutral-button" onClick={closeDeleteCatalogDialog} type="button">
                 Cancel
               </button>
             </div>
