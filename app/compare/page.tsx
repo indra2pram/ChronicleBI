@@ -8,7 +8,8 @@ import {
   type CategoryComparison,
   type ComparisonResult,
   type ComparisonStatus,
-  type TokenComparison
+  type TokenComparison,
+  type TokenComparisonEntry
 } from "./comparison";
 import styles from "./page.module.css";
 
@@ -56,25 +57,98 @@ function summaryValue(value: number, singular: string, plural = `${singular}s`) 
   return `${value} ${value === 1 ? singular : plural}`;
 }
 
+type ComparisonViewMode = "changed" | "all";
+
+interface XmlInspectorState {
+  heading: string;
+  path: string;
+  beforeValue: string;
+  afterValue: string;
+}
+
 function isValidCatalogBundle(file: File) {
   return file.name.toLowerCase().endsWith(".xdrz");
+}
+
+function unwrapCdataValue(value: string) {
+  const trimmed = value.trim();
+
+  if (trimmed.startsWith("<![CDATA[") && trimmed.endsWith("]]>")) {
+    return trimmed.slice(9, -3).trim();
+  }
+
+  return trimmed;
+}
+
+function getXmlLikeValue(value: string) {
+  const normalizedValue = unwrapCdataValue(value);
+
+  if (!normalizedValue) {
+    return "";
+  }
+
+  return /^<\?xml\b|^<[A-Za-z_][\w:.-]*(\s|\/?>)|^<!--/.test(normalizedValue) ? normalizedValue : "";
+}
+
+function splitCodeLines(value: string) {
+  return value.replace(/\r\n?/g, "\n").split("\n");
+}
+
+function CodePane({
+  heading,
+  value
+}: Readonly<{
+  heading: string;
+  value: string;
+}>) {
+  const codeValue = getXmlLikeValue(value);
+
+  return (
+    <section className={styles.xmlPane}>
+      <div className={styles.xmlPaneHeader}>
+        <span>{heading}</span>
+      </div>
+
+      <div className={styles.xmlCodeShell}>
+        {codeValue ? (
+          <div className={styles.xmlCode}>
+            {splitCodeLines(codeValue).map((line, index) => (
+              <div className={styles.xmlCodeLine} key={`${heading}-${index + 1}`}>
+                <span className={styles.xmlCodeLineNumber}>{index + 1}</span>
+                <code className={styles.xmlCodeLineContent}>{line || "\u00A0"}</code>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className={styles.xmlEmptyCopy}>No XML content.</p>
+        )}
+      </div>
+    </section>
+  );
 }
 
 function CategorySection({
   heading,
   note,
-  category
+  category,
+  viewMode
 }: Readonly<{
   heading: string;
   note: string;
   category: CategoryComparison;
+  viewMode: ComparisonViewMode;
 }>) {
+  const visibleEntries =
+    viewMode === "changed"
+      ? category.entries.filter((entry) => entry.status !== "unchanged")
+      : category.entries;
+
   return (
     <section className={`surface ${styles.sectionCard}`}>
       <div className={styles.sectionHeader}>
         <div>
           <p className="section-label">{heading}</p>
-          <h3>{summaryValue(category.total, "file")}</h3>
+          <h3>{summaryValue(visibleEntries.length, "file")}</h3>
           <p className={styles.sectionNote}>{note}</p>
         </div>
         <div className={styles.pillRow}>
@@ -90,7 +164,7 @@ function CategorySection({
         </div>
       </div>
 
-      {category.entries.length > 0 ? (
+      {visibleEntries.length > 0 ? (
         <div className={styles.tableWrap}>
           <table className={styles.resultTable}>
             <thead>
@@ -103,7 +177,7 @@ function CategorySection({
               </tr>
             </thead>
             <tbody>
-              {category.entries.map((entry) => (
+              {visibleEntries.map((entry) => (
                 <tr key={entry.path}>
                   <td className={styles.pathCell}>{entry.path}</td>
                   <td>
@@ -122,7 +196,11 @@ function CategorySection({
           </table>
         </div>
       ) : (
-        <p className={styles.emptyCopy}>No files were classified in this category.</p>
+        <p className={styles.emptyCopy}>
+          {viewMode === "changed"
+            ? "No changed files were found in this category."
+            : "No files were classified in this category."}
+        </p>
       )}
     </section>
   );
@@ -131,18 +209,27 @@ function CategorySection({
 function TokenSection({
   heading,
   note,
-  tokenComparison
+  tokenComparison,
+  viewMode,
+  onOpenXmlInspector
 }: Readonly<{
   heading: string;
   note: string;
   tokenComparison: TokenComparison;
+  viewMode: ComparisonViewMode;
+  onOpenXmlInspector: (entry: TokenComparisonEntry) => void;
 }>) {
+  const visibleEntries =
+    viewMode === "changed"
+      ? tokenComparison.entries.filter((entry) => entry.status !== "unchanged")
+      : tokenComparison.entries;
+
   return (
     <section className={`surface ${styles.sectionCard}`}>
       <div className={styles.sectionHeader}>
         <div>
           <p className="section-label">{heading}</p>
-          <h3>{summaryValue(tokenComparison.total, "item")}</h3>
+          <h3>{summaryValue(visibleEntries.length, "item")}</h3>
           <p className={styles.sectionNote}>{note}</p>
         </div>
         <div className={styles.pillRow}>
@@ -158,7 +245,7 @@ function TokenSection({
         </div>
       </div>
 
-      {tokenComparison.entries.length > 0 ? (
+      {visibleEntries.length > 0 ? (
         <div className={styles.tableWrap}>
           <table className={styles.resultTable}>
             <thead>
@@ -168,27 +255,51 @@ function TokenSection({
                 <th>Path</th>
                 <th>Before</th>
                 <th>After</th>
+                <th>Inspect</th>
               </tr>
             </thead>
             <tbody>
-              {tokenComparison.entries.map((entry) => (
-                <tr key={entry.id}>
-                  <td>{entry.name}</td>
-                  <td>
-                    <span className={`${styles.statusChip} ${statusClassName(entry.status)}`}>
-                      {toStatusLabel(entry.status)}
-                    </span>
-                  </td>
-                  <td className={styles.pathCell}>{entry.path}</td>
-                  <td>{entry.beforePreview || "-"}</td>
-                  <td>{entry.afterPreview || "-"}</td>
-                </tr>
-              ))}
+              {visibleEntries.map((entry) => {
+                const canInspectXml = Boolean(
+                  getXmlLikeValue(entry.beforeValue) || getXmlLikeValue(entry.afterValue)
+                );
+
+                return (
+                  <tr key={entry.id}>
+                    <td>{entry.name}</td>
+                    <td>
+                      <span className={`${styles.statusChip} ${statusClassName(entry.status)}`}>
+                        {toStatusLabel(entry.status)}
+                      </span>
+                    </td>
+                    <td className={styles.pathCell}>{entry.path}</td>
+                    <td>{entry.beforePreview || "-"}</td>
+                    <td>{entry.afterPreview || "-"}</td>
+                    <td>
+                      {canInspectXml ? (
+                        <button
+                          className="secondary-button compact-button"
+                          onClick={() => onOpenXmlInspector(entry)}
+                          type="button"
+                        >
+                          View XML
+                        </button>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       ) : (
-        <p className={styles.emptyCopy}>No extracted entries were found for this section.</p>
+        <p className={styles.emptyCopy}>
+          {viewMode === "changed"
+            ? "No changed entries were found for this section."
+            : "No extracted entries were found for this section."}
+        </p>
       )}
     </section>
   );
@@ -200,6 +311,8 @@ export default function ComparePage() {
   const [isComparing, setIsComparing] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [result, setResult] = useState<ComparisonResult | null>(null);
+  const [viewMode, setViewMode] = useState<ComparisonViewMode>("changed");
+  const [xmlInspector, setXmlInspector] = useState<XmlInspectorState | null>(null);
 
   const canCompare = Boolean(leftFile && rightFile && !isComparing);
   const compareLabel = isComparing ? "Comparing catalogs..." : "Compare Catalogs";
@@ -222,6 +335,7 @@ export default function ComparePage() {
   function clearResult() {
     setResult(null);
     setErrorMessage("");
+    setXmlInspector(null);
   }
 
   function onLeftFileChange(event: ChangeEvent<HTMLInputElement>) {
@@ -273,12 +387,26 @@ export default function ComparePage() {
       ]);
 
       setResult(compareBundles(leftBundle, rightBundle));
+      setXmlInspector(null);
     } catch (error) {
       setResult(null);
       setErrorMessage(getErrorMessage(error));
     } finally {
       setIsComparing(false);
     }
+  }
+
+  function openXmlInspector(entry: TokenComparisonEntry) {
+    setXmlInspector({
+      heading: entry.name,
+      path: entry.path,
+      beforeValue: entry.beforeValue,
+      afterValue: entry.afterValue
+    });
+  }
+
+  function closeXmlInspector() {
+    setXmlInspector(null);
   }
 
   return (
@@ -345,9 +473,29 @@ export default function ComparePage() {
       {result ? (
         <section className={styles.resultsStack}>
           <section className={`surface ${styles.resultMetaCard}`}>
-            <div>
-              <p className="section-label">Generated</p>
-              <h2>{generatedAtLabel}</h2>
+            <div className={styles.resultMetaTop}>
+              <div>
+                <p className="section-label">Generated</p>
+                <h2>{generatedAtLabel}</h2>
+              </div>
+              <div className={styles.resultFilterGroup} role="toolbar" aria-label="Comparison filter">
+                <button
+                  aria-pressed={viewMode === "changed"}
+                  className={`${styles.resultFilterButton}${viewMode === "changed" ? ` ${styles.resultFilterButtonActive}` : ""}`}
+                  onClick={() => setViewMode("changed")}
+                  type="button"
+                >
+                  Changed
+                </button>
+                <button
+                  aria-pressed={viewMode === "all"}
+                  className={`${styles.resultFilterButton}${viewMode === "all" ? ` ${styles.resultFilterButtonActive}` : ""}`}
+                  onClick={() => setViewMode("all")}
+                  type="button"
+                >
+                  All
+                </button>
+              </div>
             </div>
             <div className={styles.bundleMetaGrid}>
               <div className={styles.bundleMetaCard}>
@@ -386,23 +534,56 @@ export default function ComparePage() {
             heading="Data model changes"
             note="Files matched by model-oriented names, paths, or content markers."
             category={result.categories.dataModel}
+            viewMode={viewMode}
           />
           <CategorySection
             heading="Catalog changes"
             note="Files matched by catalog-oriented names, paths, or content markers."
             category={result.categories.catalogs}
+            viewMode={viewMode}
           />
           <TokenSection
             heading="Query changes"
             note="Extracted from SQL files, XML query tags, and SQL-like statements."
             tokenComparison={result.queries}
+            viewMode={viewMode}
+            onOpenXmlInspector={openXmlInspector}
           />
           <TokenSection
             heading="Property changes"
             note="Extracted from properties files, config-style key/value lines, XML entries, and JSON keys."
             tokenComparison={result.properties}
+            viewMode={viewMode}
+            onOpenXmlInspector={openXmlInspector}
           />
         </section>
+      ) : null}
+
+      {xmlInspector ? (
+        <div className={styles.modalBackdrop} role="presentation" onClick={closeXmlInspector}>
+          <div
+            className={`surface ${styles.xmlModal}`}
+            role="dialog"
+            aria-label={`${xmlInspector.heading} XML inspector`}
+            aria-modal="true"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className={styles.xmlModalHeader}>
+              <div className={styles.xmlModalTitleBlock}>
+                <h2>{xmlInspector.heading}</h2>
+                <p className={styles.xmlModalPath}>{xmlInspector.path}</p>
+              </div>
+              <button className="ghost-button compact-button" onClick={closeXmlInspector} type="button">
+                Close
+              </button>
+            </div>
+
+            <div className={styles.xmlModalColumns}>
+              <CodePane heading="Before" value={xmlInspector.beforeValue} />
+              <CodePane heading="After" value={xmlInspector.afterValue} />
+            </div>
+          </div>
+        </div>
       ) : null}
     </main>
   );

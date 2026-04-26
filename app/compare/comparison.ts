@@ -55,6 +55,8 @@ export interface TokenComparisonEntry {
   status: ComparisonStatus;
   beforePreview: string;
   afterPreview: string;
+  beforeValue: string;
+  afterValue: string;
 }
 
 export interface TokenComparison {
@@ -644,7 +646,9 @@ function compareTokens(beforeMap: Map<string, ExtractedToken>, afterMap: Map<str
         name: after.name,
         status: "added",
         beforePreview: "",
-        afterPreview: after.preview
+        afterPreview: after.preview,
+        beforeValue: "",
+        afterValue: after.value
       };
     }
 
@@ -655,7 +659,9 @@ function compareTokens(beforeMap: Map<string, ExtractedToken>, afterMap: Map<str
         name: before.name,
         status: "removed",
         beforePreview: before.preview,
-        afterPreview: ""
+        afterPreview: "",
+        beforeValue: before.value,
+        afterValue: ""
       };
     }
 
@@ -667,7 +673,9 @@ function compareTokens(beforeMap: Map<string, ExtractedToken>, afterMap: Map<str
       name: before?.name || after?.name || "value",
       status,
       beforePreview: before?.preview || "",
-      afterPreview: after?.preview || ""
+      afterPreview: after?.preview || "",
+      beforeValue: before?.value || "",
+      afterValue: after?.value || ""
     };
   });
 

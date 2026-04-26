@@ -179,6 +179,210 @@ function getDefaultExpandedFolders(): ExpandedFolderState {
   };
 }
 
+type MetadataScalarValue = string | number | boolean | null;
+
+interface MetadataOverviewSection {
+  id: string;
+  title: string;
+  value: unknown;
+}
+
+function isMetadataScalarValue(value: unknown): value is MetadataScalarValue {
+  return value === null || typeof value === "string" || typeof value === "number" || typeof value === "boolean";
+}
+
+function isMetadataRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function formatMetadataLabel(value: string) {
+  const normalized = value
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .replace(/\bsql\b/gi, "SQL")
+    .replace(/\bxml\b/gi, "XML")
+    .replace(/\bjson\b/gi, "JSON")
+    .replace(/\bsha\b/gi, "SHA");
+
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
+function formatMetadataScalar(label: string, value: MetadataScalarValue) {
+  if (value === null) {
+    return "None";
+  }
+
+  if (typeof value === "boolean") {
+    return value ? "Yes" : "No";
+  }
+
+  if (typeof value === "number") {
+    const normalizedLabel = label.toLowerCase();
+
+    if (normalizedLabel.includes("bytes")) {
+      return `${value.toLocaleString()} (${formatBytes(value)})`;
+    }
+
+    return value.toLocaleString();
+  }
+
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue) {
+    return "None";
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(trimmedValue)) {
+    return formatTimestamp(trimmedValue);
+  }
+
+  return trimmedValue;
+}
+
+function isMetadataScalarArray(values: unknown[]): values is MetadataScalarValue[] {
+  return values.every((value) => isMetadataScalarValue(value));
+}
+
+function getMetadataTableColumns(rows: Array<Record<string, unknown>>) {
+  const columnSet = new Set<string>();
+
+  for (const row of rows) {
+    for (const [key, value] of Object.entries(row)) {
+      if (value === undefined) {
+        continue;
+      }
+
+      if (Array.isArray(value)) {
+        if (!isMetadataScalarArray(value)) {
+          return [];
+        }
+
+        columnSet.add(key);
+        continue;
+      }
+
+      if (!isMetadataScalarValue(value)) {
+        return [];
+      }
+
+      columnSet.add(key);
+    }
+  }
+
+  return [...columnSet];
+}
+
+function renderMetadataTableCell(label: string, value: unknown) {
+  if (Array.isArray(value) && isMetadataScalarArray(value)) {
+    return value.length > 0 ? value.map((entry) => formatMetadataScalar(label, entry)).join(", ") : "None";
+  }
+
+  if (isMetadataScalarValue(value)) {
+    return formatMetadataScalar(label, value);
+  }
+
+  if (value === undefined) {
+    return "None";
+  }
+
+  return JSON.stringify(value);
+}
+
+function renderMetadataOverviewValue(label: string, value: unknown, keyPath: string) {
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return <p className="metadata-overview-empty">No entries.</p>;
+    }
+
+    if (isMetadataScalarArray(value)) {
+      return (
+        <ul className="metadata-overview-list">
+          {value.map((entry, index) => (
+            <li key={`${keyPath}-${index}`}>{formatMetadataScalar(label, entry)}</li>
+          ))}
+        </ul>
+      );
+    }
+
+    if (value.every((entry) => isMetadataRecord(entry))) {
+      const rows = value as Array<Record<string, unknown>>;
+      const columns = getMetadataTableColumns(rows);
+
+      if (columns.length > 0) {
+        return (
+          <div className="metadata-overview-table-wrap">
+            <table className="metadata-overview-table">
+              <thead>
+                <tr>
+                  {columns.map((column) => (
+                    <th key={`${keyPath}-${column}`}>{formatMetadataLabel(column)}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row, rowIndex) => (
+                  <tr key={`${keyPath}-row-${rowIndex}`}>
+                    {columns.map((column) => (
+                      <td key={`${keyPath}-row-${rowIndex}-${column}`}>
+                        {renderMetadataTableCell(column, row[column])}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      }
+    }
+
+    return (
+      <div className="metadata-overview-stack">
+        {value.map((entry, index) => (
+          <section className="metadata-overview-group" key={`${keyPath}-${index}`}>
+            <h4 className="metadata-overview-group-title">{`${formatMetadataLabel(label)} ${index + 1}`}</h4>
+            {renderMetadataOverviewValue(label, entry, `${keyPath}-${index}`)}
+          </section>
+        ))}
+      </div>
+    );
+  }
+
+  if (isMetadataRecord(value)) {
+    const entries = Object.entries(value).filter(([, entryValue]) => entryValue !== undefined);
+    const scalarEntries = entries.filter(([, entryValue]) => isMetadataScalarValue(entryValue));
+    const nestedEntries = entries.filter(([, entryValue]) => !isMetadataScalarValue(entryValue));
+
+    return (
+      <div className="metadata-overview-block">
+        {scalarEntries.length > 0 ? (
+          <div className="meta-list metadata-preview-meta metadata-overview-meta">
+            {scalarEntries.map(([entryLabel, entryValue]) => {
+              const scalarValue = entryValue as MetadataScalarValue;
+
+              return (
+                <div className="meta-item" key={`${keyPath}-${entryLabel}`}>
+                  <span className="meta-label">{formatMetadataLabel(entryLabel)}</span>
+                  <span className="meta-value">{formatMetadataScalar(entryLabel, scalarValue)}</span>
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
+
+        {nestedEntries.map(([entryLabel, entryValue]) => (
+          <section className="metadata-overview-group" key={`${keyPath}-${entryLabel}`}>
+            <h4 className="metadata-overview-group-title">{formatMetadataLabel(entryLabel)}</h4>
+            {renderMetadataOverviewValue(entryLabel, entryValue, `${keyPath}-${entryLabel}`)}
+          </section>
+        ))}
+      </div>
+    );
+  }
+
+  return <p className="metadata-overview-inline-value">{renderMetadataTableCell(label, value)}</p>;
+}
+
 function getProjectCatalogCount(project: StoredProject) {
   return project.catalogs.length;
 }
@@ -498,36 +702,6 @@ function EnvironmentBadge({
   );
 }
 
-function HamburgerButton({
-  controls,
-  expanded,
-  label,
-  onClick
-}: Readonly<{
-  controls: string;
-  expanded: boolean;
-  label: string;
-  onClick: () => void;
-}>) {
-  return (
-    <button
-      aria-controls={controls}
-      aria-expanded={expanded}
-      aria-label={label}
-      className="hamburger-button"
-      onClick={onClick}
-      title={label}
-      type="button"
-    >
-      <span aria-hidden="true" className="hamburger-lines">
-        <span />
-        <span />
-        <span />
-      </span>
-    </button>
-  );
-}
-
 function getActionButtonClassName(tone: ActionButtonTone) {
   if (tone === "primary") {
     return "primary-button";
@@ -577,7 +751,7 @@ export default function HomePage() {
     catalogPath: string;
   } | null>(null);
   const [isExplorerActionMenuOpen, setIsExplorerActionMenuOpen] = useState(false);
-  const [isEditorFocusCollapsed, setIsEditorFocusCollapsed] = useState(false);
+  const [isEditorFocusVisible, setIsEditorFocusVisible] = useState(true);
   const [catalogDialogErrorMessage, setCatalogDialogErrorMessage] = useState("");
   const [isCatalogDownloadDialogOpen, setIsCatalogDownloadDialogOpen] = useState(false);
   const [catalogDownloadMode, setCatalogDownloadMode] = useState<CatalogDownloadMode>("metadata");
@@ -642,21 +816,69 @@ export default function HomePage() {
   const metadataPreviewLines = metadataPreview ? metadataPreview.content.split("\n") : [];
   const isMetadataSectionVisible = Boolean(metadataPreview && isMetadataPreviewOpen);
   const selectedCatalogHistory = selectedCatalog?.metadataHistory ?? [];
-  const metadataOverviewItems =
-    metadataPreview
-      ? [
-          { label: "Project", value: metadataPreview.projectCode },
-          { label: "Connection", value: metadataPreview.connectionName },
-          { label: "Catalog path", value: metadataPreview.catalogPath },
-          { label: "Generated", value: formatTimestamp(metadataPreview.downloadedAt) },
-          { label: "Payload format", value: metadataPreview.metadata.payload.format },
-          {
-            label: "Payload size",
-            value: formatBytes(metadataPreview.metadata.payload.decodedBytes)
-          },
-          { label: "SHA-256", value: metadataPreview.metadata.payload.sha256 }
-        ]
-      : [];
+  const metadataOverviewSections: MetadataOverviewSection[] = [];
+
+  if (metadataPreview) {
+    metadataOverviewSections.push(
+      {
+        id: "summary",
+        title: "Summary",
+        value: {
+          project: metadataPreview.projectCode,
+          connection: metadataPreview.connectionName,
+          catalogPath: metadataPreview.catalogPath,
+          generatedAt: metadataPreview.metadata.generatedAt,
+          downloadedAt: metadataPreview.downloadedAt,
+          metadataFile: metadataPreview.fileName
+        }
+      },
+      {
+        id: "payload",
+        title: "Payload",
+        value: metadataPreview.metadata.payload
+      }
+    );
+
+    if (metadataPreview.metadata.extraction) {
+      metadataOverviewSections.push({
+        id: "extraction",
+        title: "Extraction",
+        value: metadataPreview.metadata.extraction
+      });
+    }
+
+    if (metadataPreview.metadata.structure) {
+      metadataOverviewSections.push({
+        id: "structure",
+        title: "Structure",
+        value: metadataPreview.metadata.structure
+      });
+    }
+
+    if (metadataPreview.metadata.dataModel) {
+      metadataOverviewSections.push({
+        id: "data-model",
+        title: "Data Model",
+        value: metadataPreview.metadata.dataModel
+      });
+    }
+
+    if (metadataPreview.metadata.sqlQueries) {
+      metadataOverviewSections.push({
+        id: "sql-queries",
+        title: "SQL Queries",
+        value: metadataPreview.metadata.sqlQueries
+      });
+    }
+
+    if (metadataPreview.metadata.metadataProperties) {
+      metadataOverviewSections.push({
+        id: "metadata-properties",
+        title: "Metadata Properties",
+        value: metadataPreview.metadata.metadataProperties
+      });
+    }
+  }
 
   useEffect(() => {
     let isCancelled = false;
@@ -702,7 +924,7 @@ export default function HomePage() {
     setIsMetadataPreviewOpen(false);
   }
 
-  function openMetadataPreview(preview: MetadataPreviewState, tab: MetadataPreviewTab = "metadata") {
+  function openMetadataPreview(preview: MetadataPreviewState, tab: MetadataPreviewTab = "overview") {
     setMetadataPreview(preview);
     setActiveMetadataTab(tab);
     setIsMetadataPreviewOpen(true);
@@ -877,6 +1099,10 @@ export default function HomePage() {
       current.includes(selectedProjectCode) ? current : [...current, selectedProjectCode]
     );
   }, [selectedProjectCode]);
+
+  useEffect(() => {
+    setIsEditorFocusVisible(true);
+  }, [selectedProjectCode, selectedConnectionName, selectedCatalogPath, selectedExplorerSection]);
 
   useEffect(() => {
     const knownProjectCodes = new Set(projectState.projects.map((project) => project.code));
@@ -1138,6 +1364,7 @@ export default function HomePage() {
   function focusProject(projectCode: string) {
     const project = projectState.projects.find((item) => item.code === projectCode);
 
+    setIsEditorFocusVisible(true);
     setSelectedProjectCode(projectCode);
     setSelectedConnectionName(null);
     setSelectedCatalogPath(null);
@@ -1156,6 +1383,7 @@ export default function HomePage() {
   function selectExplorerFolder(projectCode: string, folderName: ExplorerFolderName) {
     const project = projectState.projects.find((item) => item.code === projectCode);
 
+    setIsEditorFocusVisible(true);
     setSelectedProjectCode(projectCode);
     setSelectedConnectionName(null);
     setSelectedCatalogPath(null);
@@ -1179,6 +1407,7 @@ export default function HomePage() {
   function beginNewCatalog(projectCode: string) {
     const project = projectState.projects.find((item) => item.code === projectCode);
 
+    setIsEditorFocusVisible(true);
     setSelectedProjectCode(projectCode);
     setSelectedConnectionName(null);
     setSelectedCatalogPath(null);
@@ -1202,6 +1431,7 @@ export default function HomePage() {
   function beginNewConnection(projectCode: string) {
     const project = projectState.projects.find((item) => item.code === projectCode);
 
+    setIsEditorFocusVisible(true);
     setSelectedProjectCode(projectCode);
     setSelectedConnectionName(null);
     setSelectedCatalogPath(null);
@@ -1226,6 +1456,7 @@ export default function HomePage() {
       return;
     }
 
+    setIsEditorFocusVisible(true);
     setSelectedProjectCode(projectCode);
     setSelectedConnectionName(connection.name);
     setSelectedCatalogPath(null);
@@ -1254,6 +1485,7 @@ export default function HomePage() {
       return;
     }
 
+    setIsEditorFocusVisible(true);
     setSelectedProjectCode(projectCode);
     setSelectedConnectionName(null);
     setSelectedCatalogPath(catalog.path);
@@ -1783,8 +2015,8 @@ export default function HomePage() {
     void action();
   }
 
-  function toggleEditorFocusCollapsed() {
-    setIsEditorFocusCollapsed((current) => !current);
+  function closeEditorFocus() {
+    setIsEditorFocusVisible(false);
   }
 
   const editorFocusActions: ActionButtonConfig[] = (() => {
@@ -2208,7 +2440,7 @@ export default function HomePage() {
       <section className="workspace-main">
         <section
           className={`hero-grid workspace-hero-grid${isMetadataSectionVisible ? "" : " metadata-preview-hidden"}${
-            isEditorFocusCollapsed ? " editor-focus-section-collapsed" : ""
+            isEditorFocusVisible ? "" : " editor-focus-hidden"
           }`}
         >
           {isMetadataSectionVisible && metadataPreview ? (
@@ -2269,170 +2501,154 @@ export default function HomePage() {
 
               {activeMetadataTab === "overview" ? (
                 <div className="metadata-overview-panel">
-                  <div className="meta-list metadata-preview-meta">
-                    {metadataOverviewItems.map((item) => (
-                      <div className="meta-item" key={item.label}>
-                        <span className="meta-label">{item.label}</span>
-                        <span className="meta-value">{item.value}</span>
+                  {metadataOverviewSections.map((section) => (
+                    <section className="metadata-overview-section" key={section.id}>
+                      <div className="metadata-overview-section-header">
+                        <p className="section-label">{section.title}</p>
                       </div>
-                    ))}
-                  </div>
+                      {renderMetadataOverviewValue(section.title, section.value, section.id)}
+                    </section>
+                  ))}
                 </div>
               ) : null}
             </article>
           ) : null}
 
-          <aside className={`surface active-card connection-overview-card${isEditorFocusCollapsed ? " is-collapsed" : ""}`}>
-            <div className="editor-focus-header">
-              <h2
-                className={`panel-heading panel-heading-collapsible${
-                  isEditorFocusCollapsed ? " is-hidden" : ""
-                }`}
-              >
-                Editor Focus
-              </h2>
-
-              <HamburgerButton
-                controls="editor-focus-panel"
-                expanded={!isEditorFocusCollapsed}
-                label={isEditorFocusCollapsed ? "Expand editor focus section" : "Collapse editor focus section"}
-                onClick={toggleEditorFocusCollapsed}
-              />
-            </div>
-
-            <div
-              aria-hidden={isEditorFocusCollapsed}
-              className={`panel-body-shell editor-focus-panel-shell${
-                isEditorFocusCollapsed ? " is-collapsed" : ""
-              }`}
-              id="editor-focus-panel"
-            >
-              <div className="editor-focus-body">
-                {selectedCatalog && editorFocusActions.length > 0 ? (
-                  <div className="editor-focus-actions" role="toolbar" aria-label="Editor focus actions">
-                    {editorFocusActions.map((action) => (
-                      <button
-                        className={`${getActionButtonClassName(action.tone)} compact-button`}
-                        disabled={action.disabled}
-                        key={`${action.tone}-${action.label}`}
-                        onClick={action.onClick}
-                        type="button"
-                      >
-                        {action.label}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-
-                <div className="meta-list editor-focus-metrics">
-                  {editorFocusMetrics.map((metric) => (
-                    <div className="meta-item" key={metric.label}>
-                      <span className="meta-label">{metric.label}</span>
-                      <span className="meta-value">
-                        {metric.label === "Environment" && isEnvironmentType(metric.value) ? (
-                          <EnvironmentBadge environmentType={metric.value} />
-                        ) : (
-                          metric.value
-                        )}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
-                {selectedCatalog ? (
-                  <>
-                    <div className="editor-focus-divider" />
-                    <section className="editor-focus-history" aria-label="Metadata history">
-                      <h3 className="section-label">History</h3>
-
-                      {selectedCatalogHistory.length > 0 ? (
-                        <div className="editor-focus-history-list">
-                          {selectedCatalogHistory.map((entry) => (
-                            <article className="editor-focus-history-item" key={entry.id}>
-                              <div className="editor-focus-history-item-top">
-                                <span className={`history-status-pill is-${entry.status}`}>
-                                  {entry.status === "success" ? "Success" : "Failed"}
-                                </span>
-                                <div className="history-action-group">
-                                  <button
-                                    className="secondary-button compact-button history-open-button"
-                                    disabled={
-                                      !selectedProject ||
-                                      !entry.tempFilePath ||
-                                      deletingMetadataEntryId !== null ||
-                                      (openingMetadataEntryId !== null &&
-                                        openingMetadataEntryId !== entry.id)
-                                    }
-                                    onClick={() => {
-                                      if (selectedProject) {
-                                        void openCachedCatalogMetadata(
-                                          selectedProject.code,
-                                          selectedCatalog.path,
-                                          entry.id
-                                        );
-                                      }
-                                    }}
-                                    type="button"
-                                  >
-                                    {openingMetadataEntryId === entry.id ? "Opening..." : "Open"}
-                                  </button>
-                                  <IconOnlyButton
-                                    className="history-delete-button"
-                                    disabled={
-                                      !selectedProject ||
-                                      openingMetadataEntryId !== null ||
-                                      deletingMetadataEntryId !== null
-                                    }
-                                    kind="trash"
-                                    label="Delete history entry"
-                                    onClick={() => {
-                                      if (selectedProject) {
-                                        void handleDeleteCatalogMetadataHistoryEntry(
-                                          selectedProject.code,
-                                          selectedCatalog.path,
-                                          entry.id
-                                        );
-                                      }
-                                    }}
-                                    tone="danger"
-                                  />
-                                </div>
-                              </div>
-                              <div className="editor-focus-history-meta">
-                                <span>{formatTimestamp(entry.completedAt)}</span>
-                                <EnvironmentBadge environmentType={entry.environmentType} />
-                              </div>
-                            </article>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="editor-focus-history-empty">
-                          No metadata download attempts recorded for this catalog.
-                        </p>
-                      )}
-                      <p className="editor-focus-history-note">Showing the latest 10 entries.</p>
-                    </section>
-                  </>
-                ) : null}
-
-                {!selectedCatalog && editorFocusActions.length > 0 ? (
-                  <div className="editor-focus-actions" role="toolbar" aria-label="Editor focus actions">
-                    {editorFocusActions.map((action) => (
-                      <button
-                        className={`${getActionButtonClassName(action.tone)} compact-button`}
-                        disabled={action.disabled}
-                        key={`${action.tone}-${action.label}`}
-                        onClick={action.onClick}
-                        type="button"
-                      >
-                        {action.label}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
+          {isEditorFocusVisible ? (
+            <aside className="surface active-card connection-overview-card">
+              <div className="editor-focus-header">
+                <h2 className="panel-heading">Editor Focus</h2>
+                <IconOnlyButton kind="close-square" label="Close editor focus" onClick={closeEditorFocus} />
               </div>
-            </div>
-          </aside>
+
+              <div className="panel-body-shell editor-focus-panel-shell">
+                <div className="editor-focus-body">
+                  {selectedCatalog && editorFocusActions.length > 0 ? (
+                    <div className="editor-focus-actions" role="toolbar" aria-label="Editor focus actions">
+                      {editorFocusActions.map((action) => (
+                        <button
+                          className={`${getActionButtonClassName(action.tone)} compact-button`}
+                          disabled={action.disabled}
+                          key={`${action.tone}-${action.label}`}
+                          onClick={action.onClick}
+                          type="button"
+                        >
+                          {action.label}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  <div className="meta-list editor-focus-metrics">
+                    {editorFocusMetrics.map((metric) => (
+                      <div className="meta-item" key={metric.label}>
+                        <span className="meta-label">{metric.label}</span>
+                        <span className="meta-value">
+                          {metric.label === "Environment" && isEnvironmentType(metric.value) ? (
+                            <EnvironmentBadge environmentType={metric.value} />
+                          ) : (
+                            metric.value
+                          )}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {selectedCatalog ? (
+                    <>
+                      <div className="editor-focus-divider" />
+                      <section className="editor-focus-history" aria-label="Metadata history">
+                        <h3 className="section-label">History</h3>
+
+                        {selectedCatalogHistory.length > 0 ? (
+                          <div className="editor-focus-history-list">
+                            {selectedCatalogHistory.map((entry) => (
+                              <article className="editor-focus-history-item" key={entry.id}>
+                                <div className="editor-focus-history-item-top">
+                                  <span className={`history-status-pill is-${entry.status}`}>
+                                    {entry.status === "success" ? "Success" : "Failed"}
+                                  </span>
+                                  <div className="history-action-group">
+                                    <button
+                                      className="secondary-button compact-button history-open-button"
+                                      disabled={
+                                        !selectedProject ||
+                                        !entry.tempFilePath ||
+                                        deletingMetadataEntryId !== null ||
+                                        (openingMetadataEntryId !== null &&
+                                          openingMetadataEntryId !== entry.id)
+                                      }
+                                      onClick={() => {
+                                        if (selectedProject) {
+                                          void openCachedCatalogMetadata(
+                                            selectedProject.code,
+                                            selectedCatalog.path,
+                                            entry.id
+                                          );
+                                        }
+                                      }}
+                                      type="button"
+                                    >
+                                      {openingMetadataEntryId === entry.id ? "Opening..." : "Open"}
+                                    </button>
+                                    <IconOnlyButton
+                                      className="history-delete-button"
+                                      disabled={
+                                        !selectedProject ||
+                                        openingMetadataEntryId !== null ||
+                                        deletingMetadataEntryId !== null
+                                      }
+                                      kind="trash"
+                                      label="Delete history entry"
+                                      onClick={() => {
+                                        if (selectedProject) {
+                                          void handleDeleteCatalogMetadataHistoryEntry(
+                                            selectedProject.code,
+                                            selectedCatalog.path,
+                                            entry.id
+                                          );
+                                        }
+                                      }}
+                                      tone="danger"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="editor-focus-history-meta">
+                                  <span>{formatTimestamp(entry.completedAt)}</span>
+                                  <EnvironmentBadge environmentType={entry.environmentType} />
+                                </div>
+                              </article>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="editor-focus-history-empty">
+                            No metadata download attempts recorded for this catalog.
+                          </p>
+                        )}
+                        <p className="editor-focus-history-note">Showing the latest 10 entries.</p>
+                      </section>
+                    </>
+                  ) : null}
+
+                  {!selectedCatalog && editorFocusActions.length > 0 ? (
+                    <div className="editor-focus-actions" role="toolbar" aria-label="Editor focus actions">
+                      {editorFocusActions.map((action) => (
+                        <button
+                          className={`${getActionButtonClassName(action.tone)} compact-button`}
+                          disabled={action.disabled}
+                          key={`${action.tone}-${action.label}`}
+                          onClick={action.onClick}
+                          type="button"
+                        >
+                          {action.label}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            </aside>
+          ) : null}
         </section>
       </section>
 

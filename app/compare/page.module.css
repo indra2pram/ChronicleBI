@@ -102,6 +102,38 @@
   align-items: start;
 }
 
+.resultMetaTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.85rem;
+  align-items: flex-start;
+}
+
+.resultFilterGroup {
+  display: inline-flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.resultFilterButton {
+  min-height: 2rem;
+  padding: 0.35rem 0.8rem;
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+  color: var(--text-subtle);
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
+}
+
+.resultFilterButtonActive {
+  border-color: var(--oracle-red);
+  background: #fff3ef;
+  color: var(--oracle-red);
+}
+
 .bundleMetaGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -259,6 +291,121 @@
   color: var(--text-subtle);
 }
 
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(13, 21, 35, 0.56);
+}
+
+.xmlModal {
+  display: grid;
+  gap: 0.9rem;
+  width: min(1280px, 100%);
+  max-height: calc(100vh - 2rem);
+  padding: 1rem;
+  border-top: 6px solid var(--oracle-red);
+}
+
+.xmlModalHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.85rem;
+  align-items: flex-start;
+}
+
+.xmlModalTitleBlock {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.xmlModalTitleBlock h2 {
+  margin: 0;
+}
+
+.xmlModalPath {
+  margin: 0;
+  color: var(--text-subtle);
+  font-size: 0.86rem;
+  overflow-wrap: anywhere;
+}
+
+.xmlModalColumns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+  min-height: 0;
+}
+
+.xmlPane {
+  display: grid;
+  gap: 0.55rem;
+  min-height: 0;
+}
+
+.xmlPaneHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: center;
+  color: var(--text-subtle);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.xmlCodeShell {
+  min-height: 0;
+  max-height: calc(100vh - 12rem);
+  border: 1px solid #1a2436;
+  background: #0d1523;
+  overflow: auto;
+}
+
+.xmlCode {
+  display: grid;
+  width: max-content;
+  min-width: 100%;
+  padding: 0.3rem 0;
+}
+
+.xmlCodeLine {
+  display: grid;
+  grid-template-columns: 2.9rem minmax(0, 1fr);
+  align-items: start;
+}
+
+.xmlCodeLineNumber {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0.02rem 0.5rem 0.02rem 0.25rem;
+  color: #61718b;
+  font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
+  font-size: 0.76rem;
+  line-height: 1.38;
+  user-select: none;
+}
+
+.xmlCodeLineContent {
+  display: block;
+  margin: 0;
+  padding: 0.02rem 1rem 0.02rem 0;
+  color: #dbe7ff;
+  white-space: pre;
+  font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
+  font-size: 0.8rem;
+  line-height: 1.38;
+}
+
+.xmlEmptyCopy {
+  margin: 0;
+  padding: 0.8rem 0.9rem;
+  color: #94a3b8;
+}
+
 .bundleMetaCard small,
 .bundleMetaCard strong {
   overflow-wrap: anywhere;
@@ -272,10 +419,15 @@
   .bundleMetaGrid {
     grid-template-columns: 1fr;
   }
+
+  .xmlModalColumns {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 920px) {
   .heroTop,
+  .resultMetaTop,
   .sectionHeader,
   .actionRow {
     flex-direction: column;

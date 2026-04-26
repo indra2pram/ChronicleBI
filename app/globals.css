@@ -184,22 +184,6 @@ button {
   letter-spacing: -0.03em;
 }
 
-.panel-heading-collapsible {
-  max-width: 14rem;
-  overflow: hidden;
-  white-space: nowrap;
-  transition:
-    max-width 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    opacity 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.panel-heading-collapsible.is-hidden {
-  max-width: 0;
-  opacity: 0;
-  transform: translateX(-0.45rem);
-}
-
 .action-menu {
   position: relative;
 }
@@ -221,41 +205,6 @@ button {
 .action-menu-item {
   justify-content: flex-start;
   width: 100%;
-}
-
-.hamburger-button {
-  display: inline-grid;
-  place-items: center;
-  width: 2.35rem;
-  height: 2.35rem;
-  padding: 0;
-  border: 1px solid var(--border);
-  background: var(--surface-muted);
-  color: var(--text);
-  cursor: pointer;
-  transition:
-    background 200ms ease,
-    border-color 200ms ease,
-    color 200ms ease,
-    transform 200ms ease;
-}
-
-.hamburger-button:hover {
-  background: var(--surface);
-  border-color: var(--border-strong);
-}
-
-.hamburger-lines {
-  display: grid;
-  gap: 0.18rem;
-  width: 0.95rem;
-}
-
-.hamburger-lines span {
-  display: block;
-  width: 100%;
-  height: 2px;
-  background: currentColor;
 }
 
 .tree-panel {
@@ -593,8 +542,8 @@ button {
   max-width: 100%;
 }
 
-.workspace-hero-grid.editor-focus-section-collapsed {
-  grid-template-columns: minmax(0, 1fr) 4.25rem;
+.workspace-hero-grid.editor-focus-hidden {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .workspace-hero-grid.metadata-preview-hidden {
@@ -605,8 +554,8 @@ button {
   grid-column: 2;
 }
 
-.workspace-hero-grid.metadata-preview-hidden.editor-focus-section-collapsed {
-  grid-template-columns: minmax(0, 1fr) 4.25rem;
+.workspace-hero-grid.metadata-preview-hidden.editor-focus-hidden {
+  grid-template-columns: 1fr;
 }
 
 .workspace-summary-card,
@@ -754,9 +703,96 @@ button {
 }
 
 .metadata-overview-panel {
+  display: grid;
+  gap: 0.8rem;
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
+}
+
+.metadata-overview-section {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0.95rem;
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+}
+
+.metadata-overview-section-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.metadata-overview-block,
+.metadata-overview-stack {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.metadata-overview-meta {
+  margin-top: 0;
+}
+
+.metadata-overview-group {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.metadata-overview-group-title {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.metadata-overview-list {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--text);
+}
+
+.metadata-overview-list li {
+  overflow-wrap: anywhere;
+}
+
+.metadata-overview-empty,
+.metadata-overview-inline-value {
+  margin: 0;
+  color: var(--text-subtle);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.metadata-overview-table-wrap {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  overflow: auto;
+}
+
+.metadata-overview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+}
+
+.metadata-overview-table th,
+.metadata-overview-table td {
+  padding: 0.52rem 0.6rem;
+  border-top: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.metadata-overview-table thead th {
+  border-top: 0;
+  background: var(--surface-muted);
+  color: var(--text-subtle);
+  font-weight: 600;
 }
 
 .metadata-preview-meta {
@@ -790,10 +826,6 @@ button {
   min-height: calc(100vh - 1.5rem);
   overflow: hidden;
   transition: padding 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.connection-overview-card.is-collapsed {
-  padding: 0.75rem 0.55rem;
 }
 
 .detail-grid {
@@ -1004,21 +1036,9 @@ button {
 
 .editor-focus-panel-shell {
   opacity: 1;
-  transform: translateX(0);
   min-height: 0;
   height: 100%;
   overflow: hidden;
-}
-
-.editor-focus-panel-shell.is-collapsed {
-  opacity: 0;
-  transform: translateX(0.65rem);
-  pointer-events: none;
-  visibility: hidden;
-  transition:
-    opacity 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    visibility 0ms linear 280ms;
 }
 
 .editor-focus-metrics {
@@ -1813,7 +1833,7 @@ h5 {
 
 @media (max-width: 1080px) {
   .workspace-hero-grid,
-  .workspace-hero-grid.editor-focus-section-collapsed,
+  .workspace-hero-grid.editor-focus-hidden,
   .detail-grid {
     grid-template-columns: 1fr;
   }
