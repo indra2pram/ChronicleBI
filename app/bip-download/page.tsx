@@ -45,10 +45,10 @@ export default function BipDownloadPage() {
   });
   const [selectedProjectCode, setSelectedProjectCode] = useState("");
   const [selectedConnectionName, setSelectedConnectionName] = useState("");
-  const [reportPath, setReportPath] = useState("");
+  const [catalogPath, setCatalogPath] = useState("");
   const [isBusy, setIsBusy] = useState(false);
   const [statusMessage, setStatusMessage] = useState(
-    "Select a project and connection, enter the report path, then click Download."
+    "Select a project and connection, enter the catalog path, then click Download."
   );
   const [errorMessage, setErrorMessage] = useState("");
   const [result, setResult] = useState<BipDownloadResult | null>(null);
@@ -127,8 +127,8 @@ export default function BipDownloadPage() {
       return;
     }
 
-    if (!reportPath.trim()) {
-      setErrorMessage("Enter a BIP report path.");
+    if (!catalogPath.trim()) {
+      setErrorMessage("Enter a BIP catalog path.");
       return;
     }
 
@@ -140,7 +140,7 @@ export default function BipDownloadPage() {
       const nextResult = await window.electronAPI.downloadBipObject(
         selectedProjectCode,
         selectedConnectionName,
-        reportPath.trim()
+        catalogPath.trim()
       );
 
       setResult(nextResult);
@@ -157,7 +157,7 @@ export default function BipDownloadPage() {
     }
   }
 
-  function handleDownloadMetadataJson() {
+  function handleDownloadCatalogMetadataJson() {
     if (!result) {
       return;
     }
@@ -246,17 +246,17 @@ export default function BipDownloadPage() {
           </label>
 
           <label className="field">
-            <span>BIP report absolute path</span>
+            <span>BIP catalog absolute path</span>
             <input
-              value={reportPath}
+              value={catalogPath}
               onChange={(event) => {
-                setReportPath(event.target.value);
+                setCatalogPath(event.target.value);
                 setResult(null);
                 setErrorMessage("");
               }}
-              placeholder="/Custom/MyFolder/MyReport.xdo"
+              placeholder="/Custom/MyFolder/MyCatalog.xdo"
             />
-            <small>Example: `/Custom/Financials/TrialBalance/TrialBalanceReport.xdo`</small>
+            <small>Example: `/Custom/Financials/TrialBalance/TrialBalanceCatalog.xdo`</small>
           </label>
         </div>
 
@@ -280,7 +280,7 @@ export default function BipDownloadPage() {
           <button
             className="secondary-button"
             disabled={!result}
-            onClick={handleDownloadMetadataJson}
+            onClick={handleDownloadCatalogMetadataJson}
             type="button"
           >
             Download metadata JSON
@@ -343,7 +343,7 @@ export default function BipDownloadPage() {
               <span>{result.bipJsonRootFolder}</span>
             </div>
             <div className={styles.metaItem}>
-              <span className="meta-label">Report metadata folder</span>
+              <span className="meta-label">Catalog metadata folder</span>
               <span>{result.metadataSavedFolder}</span>
             </div>
             <div className={styles.metaItem}>

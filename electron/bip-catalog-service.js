@@ -86,6 +86,20 @@ function buildSoapEnvelope(reportPath, username, password, fieldNames) {
 </soapenv:Envelope>`;
 }
 
+function buildGetFolderContentsEnvelope(catalogPath, username, password) {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:v2="http://xmlns.oracle.com/oxp/service/v2">
+  <soapenv:Header/>
+  <soapenv:Body>
+    <v2:getFolderContents>
+      <v2:folderAbsolutePath>${escapeXml(catalogPath)}</v2:folderAbsolutePath>
+      <v2:userID>${escapeXml(username)}</v2:userID>
+      <v2:password>${escapeXml(password)}</v2:password>
+    </v2:getFolderContents>
+  </soapenv:Body>
+</soapenv:Envelope>`;
+}
+
 function extractSoapFault(responseText) {
   const faultMatch = responseText.match(
     /<(?:\w+:)?faultstring[^>]*>([\s\S]*?)<\/(?:\w+:)?faultstring>/i
@@ -1178,7 +1192,7 @@ async function buildDownloadObjectMetadata(downloadObjectReturn, reportPath) {
   return {
     metadata: {
       generatedAt: new Date().toISOString(),
-      reportPath,
+      catalogPath: reportPath,
       payload,
       extraction: {
         warnings: extractionContext.warnings,
@@ -1196,8 +1210,27 @@ async function buildDownloadObjectMetadata(downloadObjectReturn, reportPath) {
   };
 }
 
-async function invokeDownloadObject(endpoint, reportPath, username, password) {
+async function invokeCatalogServiceRequest(endpoint, soapAction, body, username, password) {
   const authHeader = Buffer.from(`${username}:${password}`).toString("base64");
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${authHeader}`,
+      "Content-Type": "text/xml; charset=utf-8",
+      SOAPAction: soapAction
+    },
+    body
+  });
+  const responseText = await response.text();
+
+  return {
+    response,
+    responseText,
+    fault: extractSoapFault(responseText)
+  };
+}
+
+async function invokeDownloadObject(endpoint, reportPath, username, password) {
   const variants = [
     {
       name: "reportAbsolutePath/userID/password",
@@ -1229,27 +1262,23 @@ async function invokeDownloadObject(endpoint, reportPath, username, password) {
   for (const variant of variants) {
     const body = buildSoapEnvelope(reportPath, username, password, variant.fields);
 
-    let response = null;
-    let responseText = "";
+    let catalogResponse = null;
 
     try {
-      response = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          Authorization: `Basic ${authHeader}`,
-          "Content-Type": "text/xml; charset=utf-8",
-          SOAPAction: "downloadObject"
-        },
-        body
-      });
-      responseText = await response.text();
+      catalogResponse = await invokeCatalogServiceRequest(
+        endpoint,
+        "downloadObject",
+        body,
+        username,
+        password
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to call SOAP service.";
       failedAttempts.push(`${variant.name}: network error (${message})`);
       continue;
     }
 
-    const fault = extractSoapFault(responseText);
+    const { response, responseText, fault } = catalogResponse;
     const downloadObjectReturn = extractDownloadObjectReturn(responseText);
 
     if (response.ok && !fault && downloadObjectReturn !== null) {
@@ -1312,11 +1341,52 @@ function findProjectConnection(projectState, projectCode, connectionName) {
   };
 }
 
+async function validateCatalogPath(projectCode, connectionName, catalogPath) {
+  const normalizedCatalogPath = String(catalogPath ?? "").trim();
+
+  if (!normalizedCatalogPath) {
+    throw new Error("BIP catalog path is required.");
+  }
+
+  const projectState = await readProjectState();
+  const { project, connection } = findProjectConnection(projectState, projectCode, connectionName);
+  const endpoint = normalizeServiceEndpoint(connection.url);
+  const body = buildGetFolderContentsEnvelope(
+    normalizedCatalogPath,
+    connection.username,
+    connection.password
+  );
+
+  try {
+    const { response, fault } = await invokeCatalogServiceRequest(
+      endpoint,
+      "getFolderContents",
+      body,
+      connection.username,
+      connection.password
+    );
+
+    if (!response.ok || fault) {
+      throw new Error("Unable to find catalog path.");
+    }
+  } catch (_error) {
+    throw new Error("Unable to find catalog path.");
+  }
+
+  return {
+    projectCode: project.code,
+    projectName: project.name,
+    connectionName: connection.name,
+    catalogPath: normalizedCatalogPath,
+    endpoint
+  };
+}
+
 async function downloadBipObject(projectCode, connectionName, reportPath) {
   const normalizedReportPath = String(reportPath ?? "").trim();
 
   if (!normalizedReportPath) {
-    throw new Error("BIP report path is required.");
+    throw new Error("BIP catalog path is required.");
   }
 
   const projectState = await readProjectState();
@@ -1345,7 +1415,7 @@ async function downloadBipObject(projectCode, connectionName, reportPath) {
     endpoint: response.endpoint,
     variantUsed: response.variantUsed,
     httpStatus: response.httpStatus,
-    reportPath: normalizedReportPath,
+    catalogPath: normalizedReportPath,
     downloadObjectReturn: response.downloadObjectReturn,
     payloadBase64Length: response.payloadBase64Length,
     payloadDecodedBytes: response.payloadDecodedBytes,
@@ -1364,5 +1434,6 @@ async function downloadBipObject(projectCode, connectionName, reportPath) {
 }
 
 module.exports = {
-  downloadBipObject
+  downloadBipObject,
+  validateCatalogPath
 };

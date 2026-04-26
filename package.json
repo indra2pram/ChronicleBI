@@ -1,8 +1,9 @@
 {
-  "name": "electron-nextjs-boilerplate",
+  "name": "chronicle-bi",
+  "productName": "Chronicle BI",
   "version": "0.1.0",
   "private": true,
-  "description": "A desktop boilerplate powered by Electron and Next.js.",
+  "description": "Chronicle BI desktop workspace powered by Electron and Next.js.",
   "main": "electron/main.js",
   "scripts": {
     "dev": "node ./scripts/run-electron.js development",

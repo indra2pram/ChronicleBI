@@ -6,15 +6,24 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getProjectState: () => ipcRenderer.invoke("project:get-state"),
   createProject: (project) => ipcRenderer.invoke("project:create", project),
   openProject: (projectCode) => ipcRenderer.invoke("project:open", projectCode),
+  updateProject: (projectCode, project) => ipcRenderer.invoke("project:update", projectCode, project),
   deleteProject: (projectCode) => ipcRenderer.invoke("project:delete", projectCode),
+  saveCatalog: (projectCode, catalog, existingCatalogPath) =>
+    ipcRenderer.invoke("catalog:save", projectCode, catalog, existingCatalogPath),
+  validateCatalogPath: (projectCode, connectionName, catalogPath) =>
+    ipcRenderer.invoke("catalog:validate", projectCode, connectionName, catalogPath),
+  deleteCatalog: (projectCode, catalogPath) =>
+    ipcRenderer.invoke("catalog:delete", projectCode, catalogPath),
   saveConnection: (projectCode, connection, existingConnectionName) =>
     ipcRenderer.invoke("connection:save", projectCode, connection, existingConnectionName),
   deleteConnection: (projectCode, connectionName) =>
     ipcRenderer.invoke("connection:delete", projectCode, connectionName),
-  testConnection: (projectCode, connection, existingConnectionName) =>
-    ipcRenderer.invoke("connection:test", projectCode, connection, existingConnectionName),
-  downloadBipObject: (projectCode, connectionName, reportPath) =>
-    ipcRenderer.invoke("bip:download-object", projectCode, connectionName, reportPath),
+  downloadBipObject: (projectCode, connectionName, catalogPath) =>
+    ipcRenderer.invoke("bip:download-object", projectCode, connectionName, catalogPath),
+  getCachedCatalogMetadata: (projectCode, catalogPath) =>
+    ipcRenderer.invoke("catalog:get-cached-metadata", projectCode, catalogPath),
+  saveMetadataJson: (defaultFileName, metadata) =>
+    ipcRenderer.invoke("metadata:save-json", defaultFileName, metadata),
   onMenuAction: (callback) => {
     const listener = (_event, command) => {
       callback(command);

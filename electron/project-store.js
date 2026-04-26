@@ -8,8 +8,30 @@ const defaultProjectState = {
   projects: []
 };
 
+const connectionUrlPattern = "https://*.fa.ocs.oraclecloud.com";
+const environmentTypeValues = new Set(["Dev", "Test", "Prod"]);
+const MAX_METADATA_HISTORY = 10;
+
 function getStoragePath() {
   return path.join(app.getPath("userData"), "projects.json");
+}
+
+function getCatalogMetadataTempRoot() {
+  if (app.isPackaged) {
+    return path.join(app.getPath("userData"), "temp", "catalog-metadata");
+  }
+
+  return path.join(app.getAppPath(), "temp", "catalog-metadata");
+}
+
+function isPathInsideDirectory(filePath, directoryPath) {
+  const resolvedFilePath = path.resolve(String(filePath ?? ""));
+  const resolvedDirectoryPath = path.resolve(String(directoryPath ?? ""));
+
+  return (
+    resolvedFilePath === resolvedDirectoryPath ||
+    resolvedFilePath.startsWith(`${resolvedDirectoryPath}${path.sep}`)
+  );
 }
 
 function normalizeProjectDraft(input) {
@@ -20,12 +42,83 @@ function normalizeProjectDraft(input) {
   };
 }
 
+function normalizeEnvironmentType(input) {
+  const value = String(input ?? "").trim().toLowerCase();
+
+  if (value === "test") {
+    return "Test";
+  }
+
+  if (value === "prod" || value === "production") {
+    return "Prod";
+  }
+
+  return "Dev";
+}
+
+function normalizeConnectionUrl(input) {
+  const value = String(input ?? "").trim();
+
+  if (!value) {
+    return "";
+  }
+
+  try {
+    const parsedUrl = new URL(value);
+
+    if ((parsedUrl.pathname === "" || parsedUrl.pathname === "/") && !parsedUrl.search && !parsedUrl.hash) {
+      return `${parsedUrl.protocol}//${parsedUrl.host}`;
+    }
+  } catch (_error) {
+    return value;
+  }
+
+  return value;
+}
+
 function normalizeConnectionDraft(input) {
   return {
     name: String(input?.name ?? "").trim(),
-    url: String(input?.url ?? "").trim(),
+    url: normalizeConnectionUrl(input?.url),
     username: String(input?.username ?? "").trim(),
-    password: String(input?.password ?? "")
+    password: String(input?.password ?? ""),
+    environmentType: normalizeEnvironmentType(input?.environmentType)
+  };
+}
+
+function normalizeCatalogDraft(input) {
+  return {
+    path: String(input?.path ?? "").trim()
+  };
+}
+
+function normalizeOptionalString(input) {
+  const value = String(input ?? "").trim();
+  return value ? value : null;
+}
+
+function normalizeMetadataHistoryStatus(input) {
+  return String(input ?? "").trim().toLowerCase() === "failed" ? "failed" : "success";
+}
+
+function normalizeCatalogMetadataHistoryEntry(input) {
+  const status = normalizeMetadataHistoryStatus(input?.status);
+  const completedAt = String(input?.completedAt ?? new Date().toISOString());
+  const requestedAt = String(input?.requestedAt ?? completedAt);
+
+  return {
+    id: String(
+      input?.id ??
+        `${completedAt}:${status}:${String(input?.connectionName ?? "").trim() || "catalog-metadata"}`
+    ),
+    requestedAt,
+    completedAt,
+    status,
+    connectionName: String(input?.connectionName ?? "").trim(),
+    fileName: normalizeOptionalString(input?.fileName),
+    detail:
+      String(input?.detail ?? "").trim() ||
+      (status === "success" ? "Metadata JSON cached." : "Metadata download failed.")
   };
 }
 
@@ -37,6 +130,32 @@ function normalizeStoredConnection(input) {
     createdAt: String(input?.createdAt ?? new Date().toISOString()),
     updatedAt: String(input?.updatedAt ?? new Date().toISOString())
   };
+}
+
+function normalizeStoredCatalog(input) {
+  const catalog = normalizeCatalogDraft(input);
+
+  return {
+    ...catalog,
+    createdAt: String(input?.createdAt ?? new Date().toISOString()),
+    updatedAt: String(input?.updatedAt ?? new Date().toISOString()),
+    latestMetadataFileName: normalizeOptionalString(input?.latestMetadataFileName),
+    latestMetadataTempPath: normalizeOptionalString(input?.latestMetadataTempPath),
+    latestMetadataConnectionName: normalizeOptionalString(input?.latestMetadataConnectionName),
+    latestMetadataDownloadedAt: normalizeOptionalString(input?.latestMetadataDownloadedAt),
+    metadataHistory: sanitizeCatalogMetadataHistory(input?.metadataHistory)
+  };
+}
+
+function sanitizeCatalogMetadataHistory(input) {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+
+  return input
+    .map(normalizeCatalogMetadataHistoryEntry)
+    .filter((entry) => entry.connectionName || entry.fileName || entry.detail)
+    .slice(0, MAX_METADATA_HISTORY);
 }
 
 function sanitizeConnections(input) {
@@ -62,6 +181,29 @@ function sanitizeConnections(input) {
   });
 }
 
+function sanitizeCatalogs(input) {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+
+  const seenPaths = new Set();
+
+  return input.map(normalizeStoredCatalog).filter((catalog) => {
+    if (!catalog.path) {
+      return false;
+    }
+
+    const normalizedPath = catalog.path.toLowerCase();
+
+    if (seenPaths.has(normalizedPath)) {
+      return false;
+    }
+
+    seenPaths.add(normalizedPath);
+    return true;
+  });
+}
+
 function normalizeStoredProject(input) {
   const project = normalizeProjectDraft(input);
 
@@ -69,7 +211,8 @@ function normalizeStoredProject(input) {
     ...project,
     createdAt: String(input?.createdAt ?? new Date().toISOString()),
     updatedAt: String(input?.updatedAt ?? new Date().toISOString()),
-    connections: sanitizeConnections(input?.connections)
+    connections: sanitizeConnections(input?.connections),
+    catalogs: sanitizeCatalogs(input?.catalogs ?? input?.reports)
   };
 }
 
@@ -145,6 +288,29 @@ function validateProjectDraft(projectDraft) {
   }
 }
 
+function isValidConnectionUrl(value) {
+  let parsedUrl = null;
+
+  try {
+    parsedUrl = new URL(value);
+  } catch (_error) {
+    return false;
+  }
+
+  const hostname = parsedUrl.hostname.toLowerCase();
+  const requiredSuffix = ".fa.ocs.oraclecloud.com";
+  const hasRequiredHost = hostname.endsWith(requiredSuffix) && hostname.length > requiredSuffix.length;
+  const hasOnlyRootPath = !parsedUrl.pathname || parsedUrl.pathname === "/";
+
+  return (
+    parsedUrl.protocol === "https:" &&
+    hasRequiredHost &&
+    hasOnlyRootPath &&
+    !parsedUrl.search &&
+    !parsedUrl.hash
+  );
+}
+
 function validateConnectionDraft(connectionDraft) {
   if (!connectionDraft.name) {
     throw new Error("Connection name is required.");
@@ -162,16 +328,22 @@ function validateConnectionDraft(connectionDraft) {
     throw new Error("Connection password is required.");
   }
 
-  let parsedUrl = null;
-
-  try {
-    parsedUrl = new URL(connectionDraft.url);
-  } catch (_error) {
-    throw new Error("Connection URL must be a valid http or https address.");
+  if (!environmentTypeValues.has(connectionDraft.environmentType)) {
+    throw new Error("Environment type must be one of Dev, Test, or Prod.");
   }
 
-  if (!["http:", "https:"].includes(parsedUrl.protocol)) {
-    throw new Error("Connection URL must be a valid http or https address.");
+  if (!isValidConnectionUrl(connectionDraft.url)) {
+    throw new Error(`URL must match the pattern ${connectionUrlPattern}.`);
+  }
+}
+
+function validateCatalogDraft(catalogDraft) {
+  if (!catalogDraft.path) {
+    throw new Error("BIP catalog path is required.");
+  }
+
+  if (!catalogDraft.path.startsWith("/")) {
+    throw new Error("BIP catalog path must start with /.");
   }
 }
 
@@ -187,6 +359,16 @@ function getConnectionIndex(connections, connectionName) {
   }
 
   return connections.findIndex((connection) => connection.name.toLowerCase() === normalizedName);
+}
+
+function getCatalogIndex(catalogs, catalogPath) {
+  const normalizedPath = String(catalogPath ?? "").trim().toLowerCase();
+
+  if (!normalizedPath) {
+    return -1;
+  }
+
+  return catalogs.findIndex((catalog) => catalog.path.toLowerCase() === normalizedPath);
 }
 
 function ensureProjectExists(projectState, projectCode, missingMessage) {
@@ -231,6 +413,17 @@ function ensureUniqueConnectionName(connections, connectionName, currentIndex) {
   }
 }
 
+function ensureUniqueCatalogPath(catalogs, catalogPath, currentIndex) {
+  const normalizedPath = catalogPath.toLowerCase();
+  const duplicateIndex = catalogs.findIndex(
+    (catalog, index) => index !== currentIndex && catalog.path.toLowerCase() === normalizedPath
+  );
+
+  if (duplicateIndex >= 0) {
+    throw new Error("Catalog path must be unique within the selected project.");
+  }
+}
+
 async function createProject(projectInput) {
   const draft = normalizeProjectDraft(projectInput);
   validateProjectDraft(draft);
@@ -246,6 +439,7 @@ async function createProject(projectInput) {
   const nextProject = {
     ...draft,
     connections: [],
+    catalogs: [],
     createdAt: now,
     updatedAt: now
   };
@@ -276,6 +470,41 @@ async function openProject(projectCode) {
   });
 }
 
+async function updateProject(projectCode, projectInput) {
+  const code = String(projectCode ?? "").trim();
+
+  if (!code) {
+    throw new Error("Choose a project before saving changes.");
+  }
+
+  const projectState = await readProjectState();
+  const { project, projectIndex } = ensureProjectExists(
+    projectState,
+    code,
+    "Choose a project before saving changes."
+  );
+  const draft = normalizeProjectDraft({
+    ...projectInput,
+    code
+  });
+
+  validateProjectDraft(draft);
+
+  const now = new Date().toISOString();
+  const nextProjects = [...projectState.projects];
+  nextProjects[projectIndex] = {
+    ...project,
+    name: draft.name,
+    description: draft.description,
+    updatedAt: now
+  };
+
+  return writeProjectState({
+    ...projectState,
+    projects: nextProjects
+  });
+}
+
 async function deleteProject(projectCode) {
   const code = String(projectCode ?? "").trim();
 
@@ -293,6 +522,120 @@ async function deleteProject(projectCode) {
   return writeProjectState({
     activeProjectCode:
       projectState.activeProjectCode === code ? nextProjects[0]?.code ?? null : projectState.activeProjectCode,
+    projects: nextProjects
+  });
+}
+
+async function saveCatalog(projectCode, catalogInput, existingCatalogPath) {
+  const code = String(projectCode ?? "").trim();
+
+  if (!code) {
+    throw new Error("Choose a project before saving a catalog path.");
+  }
+
+  const draft = normalizeCatalogDraft(catalogInput);
+  validateCatalogDraft(draft);
+
+  const projectState = await readProjectState();
+  const { project, projectIndex } = ensureProjectExists(
+    projectState,
+    code,
+    "Choose a project before saving a catalog path."
+  );
+  const nextCatalogs = [...project.catalogs];
+  const catalogIndex = getCatalogIndex(nextCatalogs, existingCatalogPath);
+
+  ensureUniqueCatalogPath(nextCatalogs, draft.path, catalogIndex);
+
+  const now = new Date().toISOString();
+  const nextCatalog =
+    catalogIndex >= 0
+      ? {
+          ...nextCatalogs[catalogIndex],
+          ...draft,
+          updatedAt: now
+        }
+      : {
+          ...draft,
+          createdAt: now,
+          updatedAt: now
+        };
+
+  if (catalogIndex >= 0) {
+    nextCatalogs[catalogIndex] = nextCatalog;
+  } else {
+    nextCatalogs.unshift(nextCatalog);
+  }
+
+  const nextProjects = [...projectState.projects];
+  nextProjects[projectIndex] = {
+    ...project,
+    catalogs: nextCatalogs,
+    updatedAt: now
+  };
+
+  return writeProjectState({
+    ...projectState,
+    projects: nextProjects
+  });
+}
+
+async function recordCatalogMetadataDownload(projectCode, catalogPath, historyInput, latestMetadataInput) {
+  const code = String(projectCode ?? "").trim();
+  const normalizedCatalogPath = String(catalogPath ?? "").trim();
+
+  if (!code) {
+    throw new Error("Choose a project before recording catalog metadata.");
+  }
+
+  if (!normalizedCatalogPath) {
+    throw new Error("Choose a catalog path before recording catalog metadata.");
+  }
+
+  const projectState = await readProjectState();
+  const { project, projectIndex } = ensureProjectExists(
+    projectState,
+    code,
+    "Choose a project before recording catalog metadata."
+  );
+  const catalogIndex = getCatalogIndex(project.catalogs, normalizedCatalogPath);
+
+  if (catalogIndex < 0) {
+    throw new Error("The selected catalog path was not found.");
+  }
+
+  const now = new Date().toISOString();
+  const historyEntry = normalizeCatalogMetadataHistoryEntry({
+    ...historyInput,
+    completedAt: String(historyInput?.completedAt ?? now),
+    requestedAt: String(historyInput?.requestedAt ?? historyInput?.completedAt ?? now)
+  });
+  const nextCatalogs = [...project.catalogs];
+  const currentCatalog = nextCatalogs[catalogIndex];
+  const nextCatalog = {
+    ...currentCatalog,
+    updatedAt: now,
+    metadataHistory: [historyEntry, ...currentCatalog.metadataHistory].slice(0, MAX_METADATA_HISTORY)
+  };
+
+  if (latestMetadataInput && latestMetadataInput.tempFilePath) {
+    nextCatalog.latestMetadataFileName = normalizeOptionalString(latestMetadataInput.fileName);
+    nextCatalog.latestMetadataTempPath = normalizeOptionalString(latestMetadataInput.tempFilePath);
+    nextCatalog.latestMetadataConnectionName = normalizeOptionalString(latestMetadataInput.connectionName);
+    nextCatalog.latestMetadataDownloadedAt = normalizeOptionalString(latestMetadataInput.downloadedAt);
+  }
+
+  nextCatalogs[catalogIndex] = nextCatalog;
+
+  const nextProjects = [...projectState.projects];
+  nextProjects[projectIndex] = {
+    ...project,
+    catalogs: nextCatalogs,
+    updatedAt: now
+  };
+
+  return writeProjectState({
+    ...projectState,
     projects: nextProjects
   });
 }
@@ -389,39 +732,69 @@ async function deleteConnection(projectCode, connectionName) {
   });
 }
 
-async function testConnection(projectCode, connectionInput, existingConnectionName) {
+async function deleteCatalog(projectCode, catalogPath) {
   const code = String(projectCode ?? "").trim();
+  const normalizedCatalogPath = String(catalogPath ?? "").trim();
 
   if (!code) {
-    throw new Error("Choose a project before testing a connection.");
+    throw new Error("Choose a project before deleting a catalog path.");
   }
 
-  const draft = normalizeConnectionDraft(connectionInput);
-  validateConnectionDraft(draft);
+  if (!normalizedCatalogPath) {
+    throw new Error("Choose a catalog path to delete.");
+  }
 
   const projectState = await readProjectState();
-  const { project } = ensureProjectExists(
+  const { project, projectIndex } = ensureProjectExists(
     projectState,
     code,
-    "Choose a project before testing a connection."
+    "Choose a project before deleting a catalog path."
   );
-  const connectionIndex = resolveConnectionIndex(project.connections, existingConnectionName);
+  const catalogIndex = getCatalogIndex(project.catalogs, normalizedCatalogPath);
 
-  ensureUniqueConnectionName(project.connections, draft.name, connectionIndex);
+  if (catalogIndex < 0) {
+    throw new Error("The selected catalog path was not found.");
+  }
 
-  return {
-    status: "passed",
-    message: "Connection test API is not configured yet. Local validation passed.",
-    testedAt: new Date().toISOString()
+  const catalogToDelete = project.catalogs[catalogIndex];
+
+  if (
+    catalogToDelete.latestMetadataTempPath &&
+    isPathInsideDirectory(catalogToDelete.latestMetadataTempPath, getCatalogMetadataTempRoot())
+  ) {
+    await fs.unlink(catalogToDelete.latestMetadataTempPath).catch((error) => {
+      if (error && error.code !== "ENOENT") {
+        throw error;
+      }
+    });
+  }
+
+  const nextCatalogs = [...project.catalogs];
+  nextCatalogs.splice(catalogIndex, 1);
+
+  const now = new Date().toISOString();
+  const nextProjects = [...projectState.projects];
+  nextProjects[projectIndex] = {
+    ...project,
+    catalogs: nextCatalogs,
+    updatedAt: now
   };
+
+  return writeProjectState({
+    ...projectState,
+    projects: nextProjects
+  });
 }
 
 module.exports = {
   createProject,
+  recordCatalogMetadataDownload,
+  saveCatalog,
+  deleteCatalog,
   deleteConnection,
   deleteProject,
   openProject,
   readProjectState,
   saveConnection,
-  testConnection
+  updateProject
 };

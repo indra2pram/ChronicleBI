@@ -263,7 +263,7 @@ export default function ComparePage() {
             <h1>Upload and compare two artifacts</h1>
             <p className={styles.heroCopy}>
               Upload any two files. If a file is a zip, nested zip content is unpacked recursively
-              and text files are compared by path. The report includes Data Model and Reports plus
+              and text files are compared by path. The comparison includes Data Model and Catalogs plus
               Query and Property changes.
             </p>
           </div>
@@ -366,9 +366,9 @@ export default function ComparePage() {
             category={result.categories.dataModel}
           />
           <CategorySection
-            heading="Report changes"
-            note="Files matched by report-oriented names, paths, or content markers."
-            category={result.categories.reports}
+            heading="Catalog changes"
+            note="Files matched by catalog-oriented names, paths, or content markers."
+            category={result.categories.catalogs}
           />
           <TokenSection
             heading="Query changes"

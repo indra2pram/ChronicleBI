@@ -8,12 +8,26 @@ const defaultProjectForm: ProjectDraft = {
   description: ""
 };
 
+const defaultCatalogForm: CatalogFormState = {
+  path: "",
+  connectionName: ""
+};
+
+const defaultCatalogDownloadForm: CatalogDownloadDraft = {
+  connectionName: "",
+  catalogPath: ""
+};
+
 const defaultConnectionForm: ConnectionDraft = {
   name: "",
   url: "",
   username: "",
-  password: ""
+  password: "",
+  environmentType: "Dev"
 };
+
+const connectionUrlPattern = "https://*.fa.ocs.oraclecloud.com";
+const environmentTypeOptions: ReadonlyArray<EnvironmentType> = ["Dev", "Test", "Prod"];
 
 const iconGlyphs = {
   add: "\uE0AB",
@@ -28,10 +42,14 @@ const iconGlyphs = {
   empty: "\uE045"
 } as const;
 
-type ExplorerSection = "project" | "connections" | "reports" | "connection";
-type ExplorerFolderName = "connections" | "reports";
+type ExplorerSection = "project" | "connections" | "catalogs" | "connection" | "catalog";
+type ExplorerFolderName = "connections" | "catalogs";
 type ConnectionDialogMode = "create" | "edit";
+type CatalogDialogMode = "create";
+type ProjectDialogMode = ProjectMenuAction | "edit-project";
+type MetadataPreviewTab = "metadata" | "overview";
 type BannerTone = "info" | "success" | "error";
+type ActionButtonTone = "primary" | "secondary" | "ghost" | "danger";
 
 interface BannerState {
   tone: BannerTone;
@@ -41,7 +59,39 @@ interface BannerState {
 
 interface ExpandedFolderState {
   connections: boolean;
-  reports: boolean;
+  catalogs: boolean;
+}
+
+interface ActionButtonConfig {
+  label: string;
+  tone: ActionButtonTone;
+  glyph?: string;
+  onClick: () => void | Promise<void>;
+  disabled?: boolean;
+}
+
+interface MetricItem {
+  label: string;
+  value: string | number;
+}
+
+interface CatalogFormState extends CatalogDraft {
+  connectionName: string;
+}
+
+interface CatalogDownloadDraft {
+  connectionName: string;
+  catalogPath: string;
+}
+
+interface MetadataPreviewState {
+  fileName: string;
+  catalogPath: string;
+  connectionName: string;
+  projectCode: string;
+  content: string;
+  metadata: BipDownloadMetadata;
+  downloadedAt: string;
 }
 
 function getErrorMessage(error: unknown) {
@@ -50,6 +100,25 @@ function getErrorMessage(error: unknown) {
   }
 
   return "Something went wrong. Please try again.";
+}
+
+function matchesConnectionUrlPattern(value: string) {
+  try {
+    const parsedUrl = new URL(value.trim());
+    const hostname = parsedUrl.hostname.toLowerCase();
+    const requiredSuffix = ".fa.ocs.oraclecloud.com";
+
+    return (
+      parsedUrl.protocol === "https:" &&
+      hostname.endsWith(requiredSuffix) &&
+      hostname.length > requiredSuffix.length &&
+      (!parsedUrl.pathname || parsedUrl.pathname === "/") &&
+      !parsedUrl.search &&
+      !parsedUrl.hash
+    );
+  } catch (_error) {
+    return false;
+  }
 }
 
 function formatTimestamp(value: string) {
@@ -66,23 +135,131 @@ function formatTimestamp(value: string) {
   }
 }
 
+function formatBytes(value: number | null | undefined) {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    return "Unavailable";
+  }
+
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let size = value;
+  let unitIndex = 0;
+
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex += 1;
+  }
+
+  const fractionDigits = unitIndex === 0 ? 0 : size >= 100 ? 0 : size >= 10 ? 1 : 2;
+  return `${size.toFixed(fractionDigits)} ${units[unitIndex]}`;
+}
+
 function formatConnectionCount(count: number) {
   return `${count} connection${count === 1 ? "" : "s"}`;
 }
 
-function formatReportCount(count: number) {
-  return `${count} report${count === 1 ? "" : "s"}`;
+function formatCatalogCount(count: number) {
+  return `${count} catalog${count === 1 ? "" : "s"}`;
+}
+
+function getCatalogDisplayName(catalogPath: string) {
+  const segments = String(catalogPath ?? "").split("/").filter(Boolean);
+  return segments[segments.length - 1] ?? catalogPath;
 }
 
 function getDefaultExpandedFolders(): ExpandedFolderState {
   return {
     connections: false,
-    reports: false
+    catalogs: false
   };
 }
 
-function getProjectReportCount(_project: StoredProject) {
-  return 0;
+function getProjectCatalogCount(project: StoredProject) {
+  return project.catalogs.length;
+}
+
+function getInitialCatalogConnectionName(project: StoredProject | null) {
+  return project?.connections[0]?.name ?? "";
+}
+
+function createMetadataPreviewState({
+  fileName,
+  catalogPath,
+  connectionName,
+  projectCode,
+  metadata,
+  content,
+  downloadedAt
+}: Readonly<{
+  fileName: string;
+  catalogPath: string;
+  connectionName: string | null;
+  projectCode: string;
+  metadata: BipDownloadMetadata;
+  content?: string;
+  downloadedAt?: string | null;
+}>): MetadataPreviewState {
+  return {
+    fileName,
+    catalogPath,
+    connectionName: String(connectionName ?? "").trim() || "Unavailable",
+    projectCode,
+    content: content ?? JSON.stringify(metadata, null, 2),
+    metadata,
+    downloadedAt: String(downloadedAt ?? metadata.generatedAt ?? new Date().toISOString())
+  };
+}
+
+function renderHighlightedJsonLine(line: string) {
+  const tokenPattern =
+    /"(?:\\.|[^"\\])*"(?=\s*:)|"(?:\\.|[^"\\])*"|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b|\btrue\b|\bfalse\b|\bnull\b|[{}\[\],:]/g;
+  const tokens: Array<{ className?: string; value: string }> = [];
+  let lastIndex = 0;
+  let match = tokenPattern.exec(line);
+
+  while (match) {
+    if (match.index > lastIndex) {
+      tokens.push({
+        value: line.slice(lastIndex, match.index)
+      });
+    }
+
+    const token = match[0];
+    const trailingContent = line.slice(match.index + token.length);
+    let className = "json-token json-punctuation";
+
+    if (token.startsWith('"')) {
+      className = /^\s*:/.test(trailingContent) ? "json-token json-key" : "json-token json-string";
+    } else if (token === "true" || token === "false") {
+      className = "json-token json-boolean";
+    } else if (token === "null") {
+      className = "json-token json-null";
+    } else if (/^-?\d/.test(token)) {
+      className = "json-token json-number";
+    }
+
+    tokens.push({
+      className,
+      value: token
+    });
+    lastIndex = match.index + token.length;
+    match = tokenPattern.exec(line);
+  }
+
+  if (lastIndex < line.length) {
+    tokens.push({
+      value: line.slice(lastIndex)
+    });
+  }
+
+  if (tokens.length === 0) {
+    return [<span key="json-empty-line">{line || "\u00A0"}</span>];
+  }
+
+  return tokens.map((token, index) => (
+    <span className={token.className} key={`json-token-${index}`}>
+      {token.value || "\u00A0"}
+    </span>
+  ));
 }
 
 function RedwoodIcon({
@@ -95,19 +272,70 @@ function RedwoodIcon({
   return <span aria-hidden="true" className={`redwood-icon ${className}`.trim()}>{glyph}</span>;
 }
 
+function HamburgerButton({
+  controls,
+  expanded,
+  label,
+  onClick
+}: Readonly<{
+  controls: string;
+  expanded: boolean;
+  label: string;
+  onClick: () => void;
+}>) {
+  return (
+    <button
+      aria-controls={controls}
+      aria-expanded={expanded}
+      aria-label={label}
+      className="hamburger-button"
+      onClick={onClick}
+      title={label}
+      type="button"
+    >
+      <span aria-hidden="true" className="hamburger-lines">
+        <span />
+        <span />
+        <span />
+      </span>
+    </button>
+  );
+}
+
+function getActionButtonClassName(tone: ActionButtonTone) {
+  if (tone === "primary") {
+    return "primary-button";
+  }
+
+  if (tone === "secondary") {
+    return "secondary-button";
+  }
+
+  if (tone === "danger") {
+    return "danger-button";
+  }
+
+  return "ghost-button";
+}
+
 export default function HomePage() {
-  const [appInfo, setAppInfo] = useState<ElectronAppInfo | null>(null);
   const [projectState, setProjectState] = useState<ProjectState>({
     activeProjectCode: null,
     projects: []
   });
   const [projectForm, setProjectForm] = useState<ProjectDraft>(defaultProjectForm);
+  const [catalogForm, setCatalogForm] = useState<CatalogFormState>(defaultCatalogForm);
+  const [catalogDownloadForm, setCatalogDownloadForm] = useState<CatalogDownloadDraft>(
+    defaultCatalogDownloadForm
+  );
   const [connectionForm, setConnectionForm] = useState<ConnectionDraft>(defaultConnectionForm);
-  const [dialogMode, setDialogMode] = useState<ProjectMenuAction | null>(null);
+  const [dialogMode, setDialogMode] = useState<ProjectDialogMode | null>(null);
   const [connectionDialogMode, setConnectionDialogMode] = useState<ConnectionDialogMode | null>(null);
+  const [catalogDialogMode, setCatalogDialogMode] = useState<CatalogDialogMode | null>(null);
   const [dialogSelectedProjectCode, setDialogSelectedProjectCode] = useState("");
   const [selectedProjectCode, setSelectedProjectCode] = useState("");
   const [selectedConnectionName, setSelectedConnectionName] = useState<string | null>(null);
+  const [selectedCatalogPath, setSelectedCatalogPath] = useState<string | null>(null);
   const [selectedExplorerSection, setSelectedExplorerSection] = useState<ExplorerSection>("project");
   const [expandedProjectCodes, setExpandedProjectCodes] = useState<string[]>([]);
   const [expandedProjectFolders, setExpandedProjectFolders] = useState<
@@ -118,17 +346,36 @@ export default function HomePage() {
     projectCode: string;
     connectionName: string;
   } | null>(null);
+  const [pendingDeleteCatalog, setPendingDeleteCatalog] = useState<{
+    projectCode: string;
+    catalogPath: string;
+  } | null>(null);
+  const [isExplorerActionMenuOpen, setIsExplorerActionMenuOpen] = useState(false);
+  const [isEditorFocusCollapsed, setIsEditorFocusCollapsed] = useState(false);
+  const [catalogDialogErrorMessage, setCatalogDialogErrorMessage] = useState("");
+  const [isCatalogDownloadDialogOpen, setIsCatalogDownloadDialogOpen] = useState(false);
   const [statusMessage, setStatusMessage] = useState(
-    "Use the File menu to add a project, open a saved one, or manage the list."
+    "Use Explorer actions to add a project, open a saved one, or manage the list."
   );
+  const [metadataPreview, setMetadataPreview] = useState<MetadataPreviewState | null>(null);
+  const [isMetadataPreviewOpen, setIsMetadataPreviewOpen] = useState(false);
+  const [activeMetadataTab, setActiveMetadataTab] = useState<MetadataPreviewTab>("metadata");
   const [dialogErrorMessage, setDialogErrorMessage] = useState("");
+  const [catalogDownloadErrorMessage, setCatalogDownloadErrorMessage] = useState("");
+  const [catalogDownloadStatusMessage, setCatalogDownloadStatusMessage] = useState(
+    "Choose a connection and download metadata for the selected catalog path."
+  );
   const [connectionBanner, setConnectionBanner] = useState<BannerState>({
     tone: "info",
     message: "Create a project first, then define connections inside it."
   });
   const [isBusy, setIsBusy] = useState(false);
+  const [isCatalogSaving, setIsCatalogSaving] = useState(false);
+  const [isCatalogDownloading, setIsCatalogDownloading] = useState(false);
+  const [isCatalogDeleting, setIsCatalogDeleting] = useState(false);
+  const [isCachedMetadataLoading, setIsCachedMetadataLoading] = useState(false);
+  const [isMetadataJsonDownloading, setIsMetadataJsonDownloading] = useState(false);
   const [isConnectionSaving, setIsConnectionSaving] = useState(false);
-  const [isConnectionTesting, setIsConnectionTesting] = useState(false);
   const [isConnectionDeleting, setIsConnectionDeleting] = useState(false);
 
   const activeProject =
@@ -142,9 +389,16 @@ export default function HomePage() {
     selectedProject && selectedConnectionName
       ? selectedProject.connections.find((connection) => connection.name === selectedConnectionName) ?? null
       : null;
-  const selectedProjectReportCount = selectedProject ? getProjectReportCount(selectedProject) : 0;
-  const isReportsView = selectedExplorerSection === "reports";
+  const selectedCatalog =
+    selectedProject && selectedCatalogPath
+      ? selectedProject.catalogs.find((catalog) => catalog.path === selectedCatalogPath) ?? null
+      : null;
+  const selectedProjectCatalogCount = selectedProject ? getProjectCatalogCount(selectedProject) : 0;
+  const isCatalogsView = selectedExplorerSection === "catalogs";
+  const isCatalogSelected = selectedExplorerSection === "catalog";
+  const isCatalogsWorkspace = isCatalogsView || isCatalogSelected;
   const isConnectionDialogOpen = connectionDialogMode !== null;
+  const isCatalogDialogOpen = catalogDialogMode !== null;
   const pendingDeleteProject =
     projectState.projects.find((project) => project.code === pendingDeleteCode) ?? null;
   const pendingDeleteConnectionDetails =
@@ -152,22 +406,42 @@ export default function HomePage() {
     projectState.projects
       .find((project) => project.code === pendingDeleteConnection.projectCode)
       ?.connections.find((connection) => connection.name === pendingDeleteConnection.connectionName);
+  const pendingDeleteCatalogDetails =
+    pendingDeleteCatalog &&
+    projectState.projects
+      .find((project) => project.code === pendingDeleteCatalog.projectCode)
+      ?.catalogs.find((catalog) => catalog.path === pendingDeleteCatalog.catalogPath);
+  const metadataPreviewLines = metadataPreview ? metadataPreview.content.split("\n") : [];
+  const isMetadataSectionVisible = Boolean(metadataPreview && isMetadataPreviewOpen);
+  const selectedCatalogHistory = selectedCatalog?.metadataHistory ?? [];
+  const canOpenCachedMetadata = Boolean(selectedCatalog?.latestMetadataTempPath);
+  const metadataOverviewItems =
+    metadataPreview
+      ? [
+          { label: "Project", value: metadataPreview.projectCode },
+          { label: "Connection", value: metadataPreview.connectionName },
+          { label: "Catalog path", value: metadataPreview.catalogPath },
+          { label: "Generated", value: formatTimestamp(metadataPreview.downloadedAt) },
+          { label: "Payload format", value: metadataPreview.metadata.payload.format },
+          {
+            label: "Payload size",
+            value: formatBytes(metadataPreview.metadata.payload.decodedBytes)
+          },
+          { label: "SHA-256", value: metadataPreview.metadata.payload.sha256 }
+        ]
+      : [];
 
   useEffect(() => {
     let isCancelled = false;
 
     async function hydrateApp() {
       try {
-        const [info, nextProjectState] = await Promise.all([
-          window.electronAPI.getAppInfo(),
-          window.electronAPI.getProjectState()
-        ]);
+        const nextProjectState = await window.electronAPI.getProjectState();
 
         if (isCancelled) {
           return;
         }
 
-        setAppInfo(info);
         setProjectState(nextProjectState);
         setSelectedProjectCode(nextProjectState.activeProjectCode ?? nextProjectState.projects[0]?.code ?? "");
         setExpandedProjectCodes(
@@ -190,6 +464,74 @@ export default function HomePage() {
       isCancelled = true;
     };
   }, []);
+
+  async function refreshProjectState() {
+    const nextProjectState = await window.electronAPI.getProjectState();
+    setProjectState(nextProjectState);
+    return nextProjectState;
+  }
+
+  function closeMetadataPreview() {
+    setIsMetadataPreviewOpen(false);
+  }
+
+  function openMetadataPreview(preview: MetadataPreviewState, tab: MetadataPreviewTab = "metadata") {
+    setMetadataPreview(preview);
+    setActiveMetadataTab(tab);
+    setIsMetadataPreviewOpen(true);
+  }
+
+  async function openCachedCatalogMetadata(projectCode: string, catalogPath: string) {
+    setIsCachedMetadataLoading(true);
+
+    try {
+      const cachedMetadata = await window.electronAPI.getCachedCatalogMetadata(projectCode, catalogPath);
+      const parsedMetadata = JSON.parse(cachedMetadata.content) as BipDownloadMetadata;
+
+      openMetadataPreview(
+        createMetadataPreviewState({
+          fileName: cachedMetadata.fileName,
+          catalogPath: cachedMetadata.catalogPath,
+          connectionName: cachedMetadata.connectionName,
+          projectCode: cachedMetadata.projectCode,
+          metadata: parsedMetadata,
+          content: cachedMetadata.content,
+          downloadedAt: cachedMetadata.downloadedAt
+        })
+      );
+      setStatusMessage(`Opened cached metadata JSON for ${cachedMetadata.catalogPath}.`);
+    } catch (error) {
+      setStatusMessage(getErrorMessage(error));
+    } finally {
+      setIsCachedMetadataLoading(false);
+    }
+  }
+
+  function downloadMetadataPreviewJson() {
+    if (!metadataPreview) {
+      return;
+    }
+
+    setIsMetadataJsonDownloading(true);
+
+    try {
+      const blob = new Blob([metadataPreview.content], {
+        type: "application/json"
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = metadataPreview.fileName;
+      document.body.append(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setStatusMessage(`Downloaded metadata JSON for ${metadataPreview.catalogPath}.`);
+    } finally {
+      setIsMetadataJsonDownloading(false);
+    }
+  }
 
   useEffect(() => {
     const unsubscribe = window.electronAPI.onMenuAction((command) => {
@@ -230,9 +572,14 @@ export default function HomePage() {
         setSelectedConnectionName(null);
       }
 
+      if (selectedCatalogPath) {
+        setSelectedCatalogPath(null);
+      }
+
       setSelectedExplorerSection("project");
       setExpandedProjectCodes([]);
       setExpandedProjectFolders({});
+      setCatalogForm(defaultCatalogForm);
       setConnectionForm(defaultConnectionForm);
       setConnectionBanner({
         tone: "info",
@@ -246,7 +593,7 @@ export default function HomePage() {
     }
 
     setSelectedProjectCode(projectState.activeProjectCode ?? projectState.projects[0]?.code ?? "");
-  }, [projectState, selectedConnectionName, selectedProjectCode]);
+  }, [projectState, selectedConnectionName, selectedProjectCode, selectedCatalogPath]);
 
   useEffect(() => {
     if (!selectedProjectCode) {
@@ -290,6 +637,30 @@ export default function HomePage() {
       message: `The selected connection is no longer available in ${selectedProject.name}. Choose another one or create a new one.`
     });
   }, [selectedConnectionName, selectedProject]);
+
+  useEffect(() => {
+    if (!selectedProject) {
+      return;
+    }
+
+    if (!selectedCatalogPath) {
+      return;
+    }
+
+    if (selectedProject.catalogs.some((catalog) => catalog.path === selectedCatalogPath)) {
+      return;
+    }
+
+    setSelectedCatalogPath(null);
+    setCatalogForm(defaultCatalogForm);
+
+    if (selectedExplorerSection === "catalog") {
+      setSelectedExplorerSection("catalogs");
+      setStatusMessage(
+        `The selected catalog is no longer available in ${selectedProject.name}. Choose another one or add a new catalog path.`
+      );
+    }
+  }, [selectedExplorerSection, selectedProject, selectedCatalogPath]);
 
   useEffect(() => {
     if (dialogMode !== "open-project") {
@@ -387,7 +758,8 @@ export default function HomePage() {
         name: selectedConnection.name,
         url: selectedConnection.url,
         username: selectedConnection.username,
-        password: selectedConnection.password
+        password: selectedConnection.password,
+        environmentType: selectedConnection.environmentType
       });
       return;
     }
@@ -395,10 +767,81 @@ export default function HomePage() {
     setConnectionForm(defaultConnectionForm);
   }
 
+  function closeCatalogDialog() {
+    if (isCatalogSaving) {
+      return;
+    }
+
+    setCatalogDialogMode(null);
+    setCatalogDialogErrorMessage("");
+    setCatalogForm(defaultCatalogForm);
+  }
+
+  function openProjectEditDialog(projectCode?: string) {
+    const code = projectCode ?? selectedProject?.code ?? "";
+    const project = projectState.projects.find((item) => item.code === code) ?? null;
+
+    if (!project) {
+      return;
+    }
+
+    setDialogErrorMessage("");
+    setPendingDeleteCode(null);
+    setProjectForm({
+      code: project.code,
+      name: project.name,
+      description: project.description
+    });
+    setDialogMode("edit-project");
+  }
+
   function closeDialog() {
     setDialogMode(null);
     setDialogErrorMessage("");
     setIsBusy(false);
+  }
+
+  function openCatalogDownloadDialog(catalogPath?: string) {
+    if (!selectedProject) {
+      return;
+    }
+
+    const nextCatalogPath = String(catalogPath ?? selectedCatalog?.path ?? "").trim();
+
+    if (!nextCatalogPath) {
+      return;
+    }
+
+    const initialConnectionName =
+      selectedConnection &&
+      selectedProject.connections.some((connection) => connection.name === selectedConnection.name)
+        ? selectedConnection.name
+        : selectedProject.connections[0]?.name ?? "";
+
+    setCatalogDownloadForm({
+      connectionName: initialConnectionName,
+      catalogPath: nextCatalogPath
+    });
+    setCatalogDownloadErrorMessage("");
+    setCatalogDownloadStatusMessage(
+      selectedProject.connections.length > 0
+        ? `Download metadata for ${getCatalogDisplayName(nextCatalogPath)} from ${selectedProject.name}.`
+        : `Add a saved connection in ${selectedProject.name} before downloading catalog metadata.`
+    );
+    setIsCatalogDownloadDialogOpen(true);
+  }
+
+  function closeCatalogDownloadDialog() {
+    if (isCatalogDownloading) {
+      return;
+    }
+
+    setIsCatalogDownloadDialogOpen(false);
+    setCatalogDownloadForm(defaultCatalogDownloadForm);
+    setCatalogDownloadErrorMessage("");
+    setCatalogDownloadStatusMessage(
+      "Choose a connection and download metadata for the selected catalog path."
+    );
   }
 
   function requestDeleteProject(projectCode: string) {
@@ -415,8 +858,10 @@ export default function HomePage() {
 
     setSelectedProjectCode(projectCode);
     setSelectedConnectionName(null);
+    setSelectedCatalogPath(null);
     setSelectedExplorerSection("project");
     ensureProjectExpanded(projectCode);
+    setCatalogForm(defaultCatalogForm);
     setConnectionForm(defaultConnectionForm);
     setConnectionBanner({
       tone: "info",
@@ -431,8 +876,10 @@ export default function HomePage() {
 
     setSelectedProjectCode(projectCode);
     setSelectedConnectionName(null);
+    setSelectedCatalogPath(null);
     setSelectedExplorerSection(folderName);
     ensureFolderExpanded(projectCode, folderName);
+    setCatalogForm(defaultCatalogForm);
     setConnectionForm(defaultConnectionForm);
     setConnectionBanner({
       tone: "info",
@@ -442,9 +889,32 @@ export default function HomePage() {
             ? `Browse or create connections inside ${project.name}.`
             : "Browse connections for the selected project."
           : project
-            ? `Reports for ${project.name} will appear here when report management is added.`
-            : "Browse reports for the selected project."
+            ? `Browse saved catalog paths inside ${project.name}, or add a new catalog path.`
+            : "Browse catalogs for the selected project."
     });
+  }
+
+  function beginNewCatalog(projectCode: string) {
+    const project = projectState.projects.find((item) => item.code === projectCode);
+
+    setSelectedProjectCode(projectCode);
+    setSelectedConnectionName(null);
+    setSelectedCatalogPath(null);
+    setSelectedExplorerSection("catalogs");
+    ensureFolderExpanded(projectCode, "catalogs");
+    setCatalogForm({
+      ...defaultCatalogForm,
+      connectionName: getInitialCatalogConnectionName(project ?? null)
+    });
+    setCatalogDialogErrorMessage("");
+    setCatalogDialogMode("create");
+    setStatusMessage(
+      project
+        ? project.connections.length > 0
+          ? `Add a catalog path inside ${project.name}.`
+          : `Add a connection inside ${project.name} before saving a catalog path.`
+        : "Add a catalog path for the selected project."
+    );
   }
 
   function beginNewConnection(projectCode: string) {
@@ -452,8 +922,10 @@ export default function HomePage() {
 
     setSelectedProjectCode(projectCode);
     setSelectedConnectionName(null);
+    setSelectedCatalogPath(null);
     setSelectedExplorerSection("connections");
     ensureFolderExpanded(projectCode, "connections");
+    setCatalogForm(defaultCatalogForm);
     setConnectionForm(defaultConnectionForm);
     setConnectionBanner({
       tone: "info",
@@ -474,19 +946,39 @@ export default function HomePage() {
 
     setSelectedProjectCode(projectCode);
     setSelectedConnectionName(connection.name);
+    setSelectedCatalogPath(null);
     setSelectedExplorerSection("connection");
     ensureFolderExpanded(projectCode, "connections");
+    setCatalogForm(defaultCatalogForm);
     setConnectionForm({
       name: connection.name,
       url: connection.url,
       username: connection.username,
-      password: connection.password
+      password: connection.password,
+      environmentType: connection.environmentType
     });
     setConnectionBanner({
       tone: "info",
       message: `Selected ${connection.name} in ${project.name}.`,
       detail: `Last updated ${formatTimestamp(connection.updatedAt)}`
     });
+  }
+
+  function selectCatalog(projectCode: string, catalogPath: string) {
+    const project = projectState.projects.find((item) => item.code === projectCode);
+    const catalog = project?.catalogs.find((item) => item.path === catalogPath);
+
+    if (!project || !catalog) {
+      return;
+    }
+
+    setSelectedProjectCode(projectCode);
+    setSelectedConnectionName(null);
+    setSelectedCatalogPath(catalog.path);
+    setSelectedExplorerSection("catalog");
+    ensureFolderExpanded(projectCode, "catalogs");
+    setCatalogForm(defaultCatalogForm);
+    setStatusMessage(`Selected ${getCatalogDisplayName(catalog.path)} in ${project.name}.`);
   }
 
   function beginEditConnection(projectCode: string, connectionName: string) {
@@ -518,7 +1010,9 @@ export default function HomePage() {
       setProjectState(nextProjectState);
       setSelectedProjectCode(nextProjectCode);
       setSelectedConnectionName(null);
+      setSelectedCatalogPath(null);
       setSelectedExplorerSection("project");
+      setCatalogForm(defaultCatalogForm);
       setConnectionForm(defaultConnectionForm);
       setConnectionBanner({
         tone: "info",
@@ -527,6 +1021,47 @@ export default function HomePage() {
       setProjectForm(defaultProjectForm);
       setDialogMode(null);
       setStatusMessage(`Project ${nextProjectCode} was created and opened.`);
+    } catch (error) {
+      setDialogErrorMessage(getErrorMessage(error));
+    } finally {
+      setIsBusy(false);
+    }
+  }
+
+  async function handleUpdateProject(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const projectCode = projectForm.code.trim();
+
+    if (!projectCode) {
+      setDialogErrorMessage("Choose a project before editing it.");
+      return;
+    }
+
+    setIsBusy(true);
+    setDialogErrorMessage("");
+
+    try {
+      const nextProjectState = await window.electronAPI.updateProject(projectCode, projectForm);
+      const nextProject = nextProjectState.projects.find((project) => project.code === projectCode) ?? null;
+
+      setProjectState(nextProjectState);
+      setSelectedProjectCode(projectCode);
+      setDialogMode(null);
+      setStatusMessage(
+        nextProject
+          ? `Project ${nextProject.code} was updated.`
+          : `Project ${projectCode} was updated.`
+      );
+
+      if (selectedProjectCode === projectCode && selectedExplorerSection === "project") {
+        setConnectionBanner({
+          tone: "info",
+          message: nextProject
+            ? `${nextProject.name} is updated. Browse connections or save catalog paths from the Catalogs folder.`
+            : `Project ${projectCode} is updated.`
+        });
+      }
     } catch (error) {
       setDialogErrorMessage(getErrorMessage(error));
     } finally {
@@ -552,7 +1087,9 @@ export default function HomePage() {
       setProjectState(nextProjectState);
       setSelectedProjectCode(code);
       setSelectedConnectionName(null);
+      setSelectedCatalogPath(null);
       setSelectedExplorerSection("project");
+      setCatalogForm(defaultCatalogForm);
       setConnectionForm(defaultConnectionForm);
       setConnectionBanner({
         tone: "info",
@@ -592,7 +1129,9 @@ export default function HomePage() {
 
       if (selectedProjectCode === deletedProjectCode) {
         setSelectedConnectionName(null);
+        setSelectedCatalogPath(null);
         setSelectedExplorerSection("project");
+        setCatalogForm(defaultCatalogForm);
         setConnectionForm(defaultConnectionForm);
         setConnectionBanner({
           tone: "info",
@@ -624,42 +1163,6 @@ export default function HomePage() {
     }
   }
 
-  async function handleTestConnection() {
-    if (!selectedProject) {
-      setConnectionBanner({
-        tone: "error",
-        message: "Choose a project before testing a connection."
-      });
-      return;
-    }
-
-    setIsConnectionTesting(true);
-
-    try {
-      const result = await window.electronAPI.testConnection(
-        selectedProject.code,
-        connectionForm,
-        selectedConnectionName
-      );
-
-      setConnectionBanner({
-        tone: "success",
-        message: result.message,
-        detail: `Validated ${formatTimestamp(result.testedAt)}`
-      });
-      setStatusMessage(
-        `Local validation passed for ${connectionForm.name.trim() || "the current connection"} in ${selectedProject.code}.`
-      );
-    } catch (error) {
-      setConnectionBanner({
-        tone: "error",
-        message: getErrorMessage(error)
-      });
-    } finally {
-      setIsConnectionTesting(false);
-    }
-  }
-
   async function handleSaveConnection(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -667,6 +1170,14 @@ export default function HomePage() {
       setConnectionBanner({
         tone: "error",
         message: "Choose a project before saving a connection."
+      });
+      return;
+    }
+
+    if (connectionForm.url.trim() && !matchesConnectionUrlPattern(connectionForm.url)) {
+      setConnectionBanner({
+        tone: "error",
+        message: `URL must match the pattern ${connectionUrlPattern}.`
       });
       return;
     }
@@ -686,13 +1197,16 @@ export default function HomePage() {
       setProjectState(nextProjectState);
       setSelectedProjectCode(selectedProject.code);
       setSelectedConnectionName(savedName);
+      setSelectedCatalogPath(null);
       setSelectedExplorerSection("connection");
       ensureFolderExpanded(selectedProject.code, "connections");
+      setCatalogForm(defaultCatalogForm);
       setConnectionForm({
         name: savedName,
-        url: connectionForm.url.trim(),
-        username: connectionForm.username.trim(),
-        password: connectionForm.password
+        url: savedConnection?.url ?? connectionForm.url.trim(),
+        username: savedConnection?.username ?? connectionForm.username.trim(),
+        password: savedConnection?.password ?? connectionForm.password,
+        environmentType: savedConnection?.environmentType ?? connectionForm.environmentType
       });
       setConnectionBanner({
         tone: "success",
@@ -736,12 +1250,14 @@ export default function HomePage() {
 
       if (selectedProjectCode === projectCode && selectedConnectionName === connectionName) {
         setSelectedConnectionName(null);
+        setSelectedCatalogPath(null);
         setSelectedExplorerSection("connections");
         ensureFolderExpanded(projectCode, "connections");
+        setCatalogForm(defaultCatalogForm);
         setConnectionForm(defaultConnectionForm);
         setConnectionBanner({
           tone: "info",
-          message: project
+            message: project
             ? `${connectionName} was removed from ${project.name}. Add another connection or choose one from the tree.`
             : "The selected connection was removed."
         });
@@ -758,731 +1274,840 @@ export default function HomePage() {
     }
   }
 
+  function requestDeleteCatalog(projectCode: string, catalogPath: string) {
+    setPendingDeleteCatalog({ projectCode, catalogPath });
+  }
+
+  function closeDeleteCatalogDialog() {
+    setPendingDeleteCatalog(null);
+  }
+
+  async function confirmDeleteCatalog() {
+    if (!pendingDeleteCatalog) {
+      return;
+    }
+
+    setIsCatalogDeleting(true);
+
+    try {
+      const { projectCode, catalogPath } = pendingDeleteCatalog;
+      const nextProjectState = await window.electronAPI.deleteCatalog(projectCode, catalogPath);
+      const project = nextProjectState.projects.find((item) => item.code === projectCode) ?? null;
+
+      setProjectState(nextProjectState);
+      setPendingDeleteCatalog(null);
+
+      if (selectedProjectCode === projectCode && selectedCatalogPath === catalogPath) {
+        setSelectedCatalogPath(null);
+        setSelectedExplorerSection("catalogs");
+        ensureFolderExpanded(projectCode, "catalogs");
+        setCatalogForm(defaultCatalogForm);
+        setCatalogDownloadForm(defaultCatalogDownloadForm);
+        setCatalogDownloadErrorMessage("");
+        setCatalogDownloadStatusMessage(
+          "Choose a connection and download metadata for the selected catalog path."
+        );
+        setIsCatalogDownloadDialogOpen(false);
+      }
+
+      setStatusMessage(
+        project
+          ? `Catalog path ${catalogPath} was deleted from ${project.name}.`
+          : `Catalog path ${catalogPath} was deleted from project ${projectCode}.`
+      );
+    } catch (error) {
+      setCatalogDialogErrorMessage(getErrorMessage(error));
+      setStatusMessage(getErrorMessage(error));
+    } finally {
+      setIsCatalogDeleting(false);
+    }
+  }
+
+  async function handleSaveCatalog(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!selectedProject) {
+      setCatalogDialogErrorMessage("Choose a project before saving a catalog path.");
+      return;
+    }
+
+    if (!catalogForm.connectionName) {
+      setCatalogDialogErrorMessage("Choose a saved connection before saving a catalog path.");
+      return;
+    }
+
+    setIsCatalogSaving(true);
+    setCatalogDialogErrorMessage("");
+
+    try {
+      await window.electronAPI.validateCatalogPath(
+        selectedProject.code,
+        catalogForm.connectionName,
+        catalogForm.path.trim()
+      );
+      const nextProjectState = await window.electronAPI.saveCatalog(selectedProject.code, catalogForm);
+      const savedPath = catalogForm.path.trim();
+      const savedProject =
+        nextProjectState.projects.find((project) => project.code === selectedProject.code) ?? null;
+      const savedCatalog = savedProject?.catalogs.find((catalog) => catalog.path === savedPath) ?? null;
+
+      setProjectState(nextProjectState);
+      setSelectedProjectCode(selectedProject.code);
+      setSelectedConnectionName(null);
+      setSelectedCatalogPath(savedPath);
+      setSelectedExplorerSection("catalog");
+      ensureFolderExpanded(selectedProject.code, "catalogs");
+      setCatalogForm(defaultCatalogForm);
+      setCatalogDialogMode(null);
+      setStatusMessage(`Catalog path ${savedPath} was saved in project ${selectedProject.code}.`);
+
+      if (savedCatalog) {
+        setCatalogDownloadStatusMessage(
+          `Download metadata for ${getCatalogDisplayName(savedCatalog.path)} when you are ready.`
+        );
+      }
+    } catch (error) {
+      setCatalogDialogErrorMessage(getErrorMessage(error));
+    } finally {
+      setIsCatalogSaving(false);
+    }
+  }
+
+  async function handleDownloadCatalogMetadata(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!selectedProject) {
+      setCatalogDownloadErrorMessage("Choose a project before downloading metadata.");
+      return;
+    }
+
+    if (!catalogDownloadForm.connectionName) {
+      setCatalogDownloadErrorMessage("Choose a saved connection first.");
+      return;
+    }
+
+    if (!catalogDownloadForm.catalogPath.trim()) {
+      setCatalogDownloadErrorMessage("Enter the absolute catalog path.");
+      return;
+    }
+
+    setIsCatalogDownloading(true);
+    setCatalogDownloadErrorMessage("");
+    setCatalogDownloadStatusMessage("Validating the catalog path...");
+
+    try {
+      await window.electronAPI.validateCatalogPath(
+        selectedProject.code,
+        catalogDownloadForm.connectionName,
+        catalogDownloadForm.catalogPath.trim()
+      );
+      setCatalogDownloadStatusMessage("Downloading the catalog and generating metadata JSON...");
+      const result = await window.electronAPI.downloadBipObject(
+        selectedProject.code,
+        catalogDownloadForm.connectionName,
+        catalogDownloadForm.catalogPath.trim()
+      );
+      openMetadataPreview(
+        createMetadataPreviewState({
+          fileName: result.metadataFileName,
+          catalogPath: result.catalogPath,
+          connectionName: catalogDownloadForm.connectionName,
+          projectCode: selectedProject.code,
+          metadata: result.metadata,
+          downloadedAt: result.metadata.generatedAt
+        })
+      );
+      await refreshProjectState();
+      setStatusMessage(`Metadata JSON for ${result.catalogPath} is ready.`);
+      setCatalogDownloadStatusMessage(
+        "Catalog downloaded and metadata JSON is ready in the preview panel."
+      );
+      setIsCatalogDownloadDialogOpen(false);
+      setCatalogDownloadForm(defaultCatalogDownloadForm);
+    } catch (error) {
+      try {
+        await refreshProjectState();
+      } catch (_refreshError) {
+        // Preserve the original error state if the refresh fails after a download attempt.
+      }
+      setCatalogDownloadErrorMessage(getErrorMessage(error));
+      setCatalogDownloadStatusMessage("Metadata download failed.");
+    } finally {
+      setIsCatalogDownloading(false);
+    }
+  }
+
+  function openComparePage() {
+    window.location.href = "/compare";
+  }
+
+  const explorerMenuActions: ActionButtonConfig[] = [
+    {
+      label: "Add Project",
+      tone: "primary",
+      glyph: iconGlyphs.add,
+      onClick: () => openDialog("add-project")
+    },
+    {
+      label: "Open Projects",
+      tone: "secondary",
+      glyph: iconGlyphs.open,
+      onClick: () => openDialog("open-project")
+    },
+    {
+      label: "Manage Projects",
+      tone: "ghost",
+      glyph: iconGlyphs.manage,
+      onClick: () => openDialog("manage-projects")
+    },
+    {
+      label: "Refresh",
+      tone: "ghost",
+      glyph: iconGlyphs.refresh,
+      onClick: handleRefresh
+    }
+  ];
+
+  function handleExplorerMenuAction(action: () => void | Promise<void>) {
+    setIsExplorerActionMenuOpen(false);
+    void action();
+  }
+
+  function toggleEditorFocusCollapsed() {
+    setIsEditorFocusCollapsed((current) => !current);
+  }
+
+  const editorFocusActions: ActionButtonConfig[] = (() => {
+    if (!selectedProject) {
+      return [
+        {
+          label: "Add Project",
+          tone: "primary",
+          glyph: iconGlyphs.add,
+          onClick: () => openDialog("add-project")
+        },
+        {
+          label: "Open Projects",
+          tone: "secondary",
+          glyph: iconGlyphs.open,
+          onClick: () => openDialog("open-project"),
+          disabled: projectState.projects.length === 0
+        }
+      ];
+    }
+
+    if (selectedCatalog) {
+      return [
+        {
+          label: isCatalogDownloading ? "Downloading..." : "Download Metadata",
+          tone: "primary",
+          glyph: iconGlyphs.open,
+          onClick: () => openCatalogDownloadDialog(selectedCatalog.path),
+          disabled: selectedProject.connections.length === 0 || isCatalogDownloading
+        },
+        {
+          label: isCatalogDeleting ? "Deleting..." : "Delete Catalog",
+          tone: "danger",
+          onClick: () => requestDeleteCatalog(selectedProject.code, selectedCatalog.path),
+          disabled: isCatalogDownloading || isCatalogDeleting
+        }
+      ];
+    }
+
+    if (selectedConnection) {
+      return [
+        {
+          label: "Edit Connection",
+          tone: "primary",
+          glyph: iconGlyphs.open,
+          onClick: () => beginEditConnection(selectedProject.code, selectedConnection.name),
+          disabled: isConnectionDeleting
+        },
+        {
+          label: isConnectionDeleting ? "Deleting..." : "Delete Connection",
+          tone: "danger",
+          onClick: () => requestDeleteConnection(selectedProject.code, selectedConnection.name),
+          disabled: isConnectionDeleting
+        }
+      ];
+    }
+
+    if (isCatalogsView) {
+      return [
+        {
+          label: "Add Catalog Path",
+          tone: "primary",
+          glyph: iconGlyphs.add,
+          onClick: () => beginNewCatalog(selectedProject.code)
+        }
+      ];
+    }
+
+    if (selectedExplorerSection === "connections") {
+      return [
+        {
+          label: "Add Connection",
+          tone: "primary",
+          glyph: iconGlyphs.add,
+          onClick: () => beginNewConnection(selectedProject.code)
+        }
+      ];
+    }
+
+    return [
+      {
+        label: "Edit Project",
+        tone: "primary",
+        glyph: iconGlyphs.manage,
+        onClick: () => openProjectEditDialog(selectedProject.code),
+        disabled: isBusy
+      },
+      {
+        label: isBusy ? "Deleting..." : "Delete Project",
+        tone: "danger",
+        onClick: () => requestDeleteProject(selectedProject.code),
+        disabled: isBusy
+      }
+    ];
+  })();
+
+  const editorFocusMetrics: MetricItem[] = (() => {
+    if (!selectedProject) {
+      return [
+        { label: "Project", value: "Not selected" },
+        { label: "Saved connections", value: 0 },
+        { label: "Catalogs", value: 0 },
+        { label: "Explorer node", value: "Unavailable" },
+        { label: "Mode", value: "Idle" }
+      ];
+    }
+
+    const metrics: MetricItem[] = [
+      { label: "Project", value: selectedProject.code },
+      { label: "Saved connections", value: selectedProject.connections.length },
+      { label: "Catalogs", value: selectedProjectCatalogCount },
+      {
+        label: "Explorer node",
+        value: isCatalogSelected
+          ? "Catalog item"
+          : isCatalogsView
+          ? "Catalogs branch"
+          : selectedExplorerSection === "connection"
+            ? "Connection item"
+            : selectedExplorerSection === "connections"
+              ? "Connections branch"
+              : "Project root"
+      },
+      {
+        label: "Mode",
+        value: selectedCatalog
+          ? "Download catalog metadata"
+          : isCatalogsView
+            ? "Browse catalogs"
+          : selectedConnection
+            ? "Inspect saved connection"
+            : selectedExplorerSection === "project"
+              ? "Project overview"
+              : "Browse connections"
+      }
+    ];
+
+    if (selectedCatalog) {
+      metrics.push({
+        label: "Catalog",
+        value: getCatalogDisplayName(selectedCatalog.path)
+      });
+      metrics.push({
+        label: "Catalog path",
+        value: selectedCatalog.path
+      });
+      metrics.push({
+        label: "Last updated",
+        value: formatTimestamp(selectedCatalog.updatedAt)
+      });
+    }
+
+    if (selectedConnection && !isCatalogsWorkspace) {
+      metrics.push({
+        label: "Connection",
+        value: selectedConnection.name
+      });
+      metrics.push({
+        label: "Environment",
+        value: selectedConnection.environmentType
+      });
+      metrics.push({
+        label: "Username",
+        value: selectedConnection.username
+      });
+      metrics.push({
+        label: "Last updated",
+        value: formatTimestamp(selectedConnection.updatedAt)
+      });
+    }
+
+    return metrics;
+  })();
+
   return (
     <main className="workspace-shell">
       <aside className="surface nav-panel">
         <div className="nav-stack">
-          <div className="eyebrow-row">
-            <span className="app-chip">Reporting Comparison Tool</span>
-            <span className="helper-chip">Oracle Redwood workspace</span>
-          </div>
-
-          <div className="nav-copy">
-            <p className="section-label">Project explorer</p>
-            <h1>Browse projects like a folder tree</h1>
-            <p className="lede nav-lede">
-              Projects stay at the root, with Connections and Reports nested underneath in a
-              tighter desktop-style explorer.
-            </p>
-          </div>
-
-          <div className="nav-actions">
-            <button className="primary-button" onClick={() => openDialog("add-project")}>
-              <RedwoodIcon className="button-icon" glyph={iconGlyphs.add} />
-              Add project
-            </button>
-            <button className="secondary-button" onClick={() => openDialog("open-project")}>
-              <RedwoodIcon className="button-icon" glyph={iconGlyphs.open} />
-              Open project
-            </button>
-            <button className="ghost-button" onClick={() => openDialog("manage-projects")}>
-              <RedwoodIcon className="button-icon" glyph={iconGlyphs.manage} />
-              Manage projects
-            </button>
-          </div>
-
-          <div className="status-panel nav-status-panel">
-            <p className="section-label">Status</p>
-            <p className="status-copy">{statusMessage}</p>
-          </div>
-
-          <section className="tree-panel">
-            <div className="tree-panel-head">
-              <div>
-                <p className="section-label">Projects, connections, and reports</p>
-                <p className="section-note">
-                  Expand a project to reveal its Connections and Reports folders, then drill into
-                  the item you want to work with.
-                </p>
-              </div>
-
-              <button className="ghost-button compact-button" onClick={handleRefresh}>
-                <RedwoodIcon className="button-icon" glyph={iconGlyphs.refresh} />
-                Refresh
-              </button>
+          <div className="explorer-header">
+            <div className="explorer-title-row">
+              <h2 className="panel-heading">Explorer</h2>
             </div>
 
-            {projectState.projects.length === 0 ? (
-              <div className="empty-state tree-empty-state">
-                <div className="empty-copy">
-                  <span className="icon-badge subtle-icon-badge">
-                    <RedwoodIcon glyph={iconGlyphs.empty} />
-                  </span>
-                  <div>
-                    <h4>No projects have been added yet</h4>
-                    <p>Start with a project so the folder tree has something to show.</p>
+            <div className={`action-menu${isExplorerActionMenuOpen ? " is-open" : ""}`}>
+              <button
+                aria-expanded={isExplorerActionMenuOpen}
+                aria-haspopup="menu"
+                className="ghost-button compact-button action-menu-trigger"
+                onClick={() => setIsExplorerActionMenuOpen((current) => !current)}
+                type="button"
+              >
+                Actions
+              </button>
+
+              {isExplorerActionMenuOpen ? (
+                <div className="action-menu-panel" role="menu">
+                  {explorerMenuActions.map((action) => (
+                    <button
+                      className={`${getActionButtonClassName(action.tone)} compact-button action-menu-item`}
+                      disabled={action.disabled}
+                      key={action.label}
+                      onClick={() => handleExplorerMenuAction(action.onClick)}
+                      role="menuitem"
+                      type="button"
+                    >
+                      {action.glyph ? <RedwoodIcon className="button-icon" glyph={action.glyph} /> : null}
+                      {action.label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="panel-body-shell explorer-panel-shell">
+            <section className="tree-panel">
+              {projectState.projects.length === 0 ? (
+                <div className="empty-state tree-empty-state">
+                  <div className="empty-copy">
+                    <span className="icon-badge subtle-icon-badge">
+                      <RedwoodIcon glyph={iconGlyphs.empty} />
+                    </span>
+                    <div>
+                      <h4>No projects have been added yet</h4>
+                      <p>Start with a project so the folder tree has something to show.</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ) : (
-              <div className="tree-list" role="tree" aria-label="Project explorer">
-                {projectState.projects.map((project) => {
-                  const isSelectedProject =
-                    selectedProject?.code === project.code && selectedExplorerSection === "project";
-                  const isConnectionsFolderSelected =
-                    selectedProject?.code === project.code && selectedExplorerSection === "connections";
-                  const isReportsFolderSelected =
-                    selectedProject?.code === project.code && selectedExplorerSection === "reports";
-                  const isCurrentProject = activeProject?.code === project.code;
-                  const isProjectExpanded = expandedProjectCodes.includes(project.code);
-                  const folderState = expandedProjectFolders[project.code] ?? getDefaultExpandedFolders();
-                  const isConnectionsExpanded = folderState.connections;
-                  const isReportsExpanded = folderState.reports;
-                  const reportCount = getProjectReportCount(project);
+              ) : (
+                <div className="tree-list" role="tree" aria-label="Project explorer">
+                  {projectState.projects.map((project) => {
+                    const isSelectedProject =
+                      selectedProject?.code === project.code && selectedExplorerSection === "project";
+                    const isConnectionsFolderSelected =
+                      selectedProject?.code === project.code && selectedExplorerSection === "connections";
+                    const isCatalogsFolderSelected =
+                      selectedProject?.code === project.code && selectedExplorerSection === "catalogs";
+                    const isCurrentProject = activeProject?.code === project.code;
+                    const isProjectExpanded = expandedProjectCodes.includes(project.code);
+                    const folderState = expandedProjectFolders[project.code] ?? getDefaultExpandedFolders();
+                    const isConnectionsExpanded = folderState.connections;
+                    const isCatalogsExpanded = folderState.catalogs;
+                    const catalogCount = getProjectCatalogCount(project);
 
-                  return (
-                    <div className="tree-group" key={project.code}>
-                      <div className="explorer-row explorer-project-row">
-                        <button
-                          aria-label={`${isProjectExpanded ? "Collapse" : "Expand"} ${project.name}`}
-                          className={`tree-toggle-button${isProjectExpanded ? " is-expanded" : ""}`}
-                          onClick={() => toggleProjectExpanded(project.code)}
-                          type="button"
-                        >
-                          <span className="tree-toggle-chevron" />
-                        </button>
+                    return (
+                      <div className="tree-group" key={project.code}>
+                        <div className="explorer-row explorer-project-row">
+                          <button
+                            aria-label={`${isProjectExpanded ? "Collapse" : "Expand"} ${project.name}`}
+                            className={`tree-toggle-button${isProjectExpanded ? " is-expanded" : ""}`}
+                            onClick={() => toggleProjectExpanded(project.code)}
+                            type="button"
+                          >
+                            <span className="tree-toggle-chevron" />
+                          </button>
 
-                        <button
-                          className={`tree-node project-node${isSelectedProject ? " is-selected" : ""}${
-                            isCurrentProject ? " is-current" : ""
-                          }`}
-                          onClick={() => focusProject(project.code)}
-                          type="button"
-                        >
-                          <span className="tree-node-leading">
-                            <RedwoodIcon className="tree-node-icon" glyph={iconGlyphs.projects} />
-                          </span>
-
-                          <span className="tree-node-copy">
-                            <span className="tree-node-title">{project.name}</span>
-                            <span className="tree-node-meta">
-                              {project.code} . {formatConnectionCount(project.connections.length)} .{" "}
-                              {formatReportCount(reportCount)}
-                              {isCurrentProject ? " . current" : ""}
+                          <button
+                            className={`tree-node project-node${isSelectedProject ? " is-selected" : ""}${
+                              isCurrentProject ? " is-current" : ""
+                            }`}
+                            onClick={() => focusProject(project.code)}
+                            type="button"
+                          >
+                            <span className="tree-node-leading">
+                              <RedwoodIcon className="tree-node-icon" glyph={iconGlyphs.projects} />
                             </span>
-                          </span>
-                        </button>
-                      </div>
 
-                      {isProjectExpanded ? (
-                        <div className="tree-children explorer-children">
-                          <div className="explorer-row explorer-folder-row">
-                            <button
-                              aria-label={`${
-                                isConnectionsExpanded ? "Collapse" : "Expand"
-                              } Connections in ${project.name}`}
-                              className={`tree-toggle-button${isConnectionsExpanded ? " is-expanded" : ""}`}
-                              onClick={() => toggleFolderExpanded(project.code, "connections")}
-                              type="button"
-                            >
-                              <span className="tree-toggle-chevron" />
-                            </button>
-
-                            <button
-                              className={`tree-node folder-node${
-                                isConnectionsFolderSelected ? " is-selected" : ""
-                              }`}
-                              onClick={() => selectExplorerFolder(project.code, "connections")}
-                              type="button"
-                            >
-                              <span className="tree-node-leading">
-                                <span
-                                  aria-hidden="true"
-                                  className={`tree-folder-icon${isConnectionsExpanded ? " is-open" : ""}`}
-                                />
+                            <span className="tree-node-copy">
+                              <span className="tree-node-title">{project.name}</span>
+                              <span className="tree-node-meta">
+                                {project.code} . {formatConnectionCount(project.connections.length)} .{" "}
+                                {formatCatalogCount(catalogCount)}
+                                {isCurrentProject ? " . current" : ""}
                               </span>
-
-                              <span className="tree-node-copy">
-                                <span className="tree-node-title">Connections</span>
-                                <span className="tree-node-meta">
-                                  {formatConnectionCount(project.connections.length)}
-                                </span>
-                              </span>
-                            </button>
-                          </div>
-
-                          {isConnectionsExpanded ? (
-                            <div className="tree-children folder-children">
-                              {project.connections.length === 0 ? (
-                                <p className="tree-empty-copy">No connections saved yet.</p>
-                              ) : (
-                                project.connections.map((connection) => {
-                                  const isSelectedConnection =
-                                    selectedProject?.code === project.code &&
-                                    selectedExplorerSection === "connection" &&
-                                    selectedConnection?.name === connection.name;
-
-                                  return (
-                                    <div className="explorer-row explorer-item-row" key={`${project.code}:${connection.name}`}>
-                                      <span aria-hidden="true" className="tree-toggle-spacer" />
-                                      <button
-                                        className={`tree-node item-node${
-                                          isSelectedConnection ? " is-selected" : ""
-                                        }`}
-                                        onClick={() => selectConnection(project.code, connection.name)}
-                                        type="button"
-                                      >
-                                        <span className="tree-node-leading">
-                                          <span aria-hidden="true" className="tree-item-icon" />
-                                        </span>
-
-                                        <span className="tree-node-copy">
-                                          <span className="tree-node-title">{connection.name}</span>
-                                          <span className="tree-node-meta">{connection.username}</span>
-                                        </span>
-                                      </button>
-                                    </div>
-                                  );
-                                })
-                              )}
-                            </div>
-                          ) : null}
-
-                          <div className="explorer-row explorer-folder-row">
-                            <button
-                              aria-label={`${
-                                isReportsExpanded ? "Collapse" : "Expand"
-                              } Reports in ${project.name}`}
-                              className={`tree-toggle-button${isReportsExpanded ? " is-expanded" : ""}`}
-                              onClick={() => toggleFolderExpanded(project.code, "reports")}
-                              type="button"
-                            >
-                              <span className="tree-toggle-chevron" />
-                            </button>
-
-                            <button
-                              className={`tree-node folder-node${
-                                isReportsFolderSelected ? " is-selected" : ""
-                              }`}
-                              onClick={() => selectExplorerFolder(project.code, "reports")}
-                              type="button"
-                            >
-                              <span className="tree-node-leading">
-                                <span
-                                  aria-hidden="true"
-                                  className={`tree-folder-icon reports-folder-icon${
-                                    isReportsExpanded ? " is-open" : ""
-                                  }`}
-                                />
-                              </span>
-
-                              <span className="tree-node-copy">
-                                <span className="tree-node-title">Reports</span>
-                                <span className="tree-node-meta">{formatReportCount(reportCount)}</span>
-                              </span>
-                            </button>
-                          </div>
-
-                          {isReportsExpanded ? (
-                            <div className="tree-children folder-children">
-                              <p className="tree-empty-copy">No reports saved yet.</p>
-                            </div>
-                          ) : null}
+                            </span>
+                          </button>
                         </div>
-                      ) : null}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
+
+                        {isProjectExpanded ? (
+                          <div className="tree-children explorer-children">
+                            <div className="explorer-row explorer-folder-row">
+                              <button
+                                aria-label={`${
+                                  isConnectionsExpanded ? "Collapse" : "Expand"
+                                } Connections in ${project.name}`}
+                                className={`tree-toggle-button${isConnectionsExpanded ? " is-expanded" : ""}`}
+                                onClick={() => toggleFolderExpanded(project.code, "connections")}
+                                type="button"
+                              >
+                                <span className="tree-toggle-chevron" />
+                              </button>
+
+                              <button
+                                className={`tree-node folder-node${
+                                  isConnectionsFolderSelected ? " is-selected" : ""
+                                }`}
+                                onClick={() => selectExplorerFolder(project.code, "connections")}
+                                type="button"
+                              >
+                                <span className="tree-node-leading">
+                                  <span
+                                    aria-hidden="true"
+                                    className={`tree-folder-icon${isConnectionsExpanded ? " is-open" : ""}`}
+                                  />
+                                </span>
+
+                                <span className="tree-node-copy">
+                                  <span className="tree-node-title">Connections</span>
+                                  <span className="tree-node-meta">
+                                    {formatConnectionCount(project.connections.length)}
+                                  </span>
+                                </span>
+                              </button>
+                            </div>
+
+                            {isConnectionsExpanded ? (
+                              <div className="tree-children folder-children">
+                                {project.connections.length === 0 ? (
+                                  <p className="tree-empty-copy">No connections saved yet.</p>
+                                ) : (
+                                  project.connections.map((connection) => {
+                                    const isSelectedConnection =
+                                      selectedProject?.code === project.code &&
+                                      selectedExplorerSection === "connection" &&
+                                      selectedConnection?.name === connection.name;
+
+                                    return (
+                                      <div className="explorer-row explorer-item-row" key={`${project.code}:${connection.name}`}>
+                                        <span aria-hidden="true" className="tree-toggle-spacer" />
+                                        <button
+                                          className={`tree-node item-node${
+                                            isSelectedConnection ? " is-selected" : ""
+                                          }`}
+                                          onClick={() => selectConnection(project.code, connection.name)}
+                                          type="button"
+                                        >
+                                          <span className="tree-node-leading">
+                                            <span aria-hidden="true" className="tree-item-icon" />
+                                          </span>
+
+                                          <span className="tree-node-copy">
+                                            <span className="tree-node-title">{connection.name}</span>
+                                            <span className="tree-node-meta">{connection.username}</span>
+                                          </span>
+                                        </button>
+                                      </div>
+                                    );
+                                  })
+                                )}
+                              </div>
+                            ) : null}
+
+                            <div className="explorer-row explorer-folder-row">
+                              <button
+                                aria-label={`${
+                                  isCatalogsExpanded ? "Collapse" : "Expand"
+                                } Catalogs in ${project.name}`}
+                                className={`tree-toggle-button${isCatalogsExpanded ? " is-expanded" : ""}`}
+                                onClick={() => toggleFolderExpanded(project.code, "catalogs")}
+                                type="button"
+                              >
+                                <span className="tree-toggle-chevron" />
+                              </button>
+
+                              <button
+                                className={`tree-node folder-node${
+                                  isCatalogsFolderSelected ? " is-selected" : ""
+                                }`}
+                                onClick={() => selectExplorerFolder(project.code, "catalogs")}
+                                type="button"
+                              >
+                                <span className="tree-node-leading">
+                                  <span
+                                    aria-hidden="true"
+                                    className={`tree-folder-icon catalogs-folder-icon${
+                                      isCatalogsExpanded ? " is-open" : ""
+                                    }`}
+                                  />
+                                </span>
+
+                                <span className="tree-node-copy">
+                                  <span className="tree-node-title">Catalogs</span>
+                                  <span className="tree-node-meta">{formatCatalogCount(catalogCount)}</span>
+                                </span>
+                              </button>
+                            </div>
+
+                            {isCatalogsExpanded ? (
+                              <div className="tree-children folder-children">
+                                {project.catalogs.length === 0 ? (
+                                  <p className="tree-empty-copy">No catalogs saved yet.</p>
+                                ) : (
+                                  project.catalogs.map((catalog) => {
+                                    const isSelectedCatalog =
+                                      selectedProject?.code === project.code &&
+                                      selectedExplorerSection === "catalog" &&
+                                      selectedCatalog?.path === catalog.path;
+
+                                    return (
+                                      <div className="explorer-row explorer-item-row" key={`${project.code}:${catalog.path}`}>
+                                        <span aria-hidden="true" className="tree-toggle-spacer" />
+                                        <button
+                                          className={`tree-node item-node${
+                                            isSelectedCatalog ? " is-selected" : ""
+                                          }`}
+                                          onClick={() => selectCatalog(project.code, catalog.path)}
+                                          type="button"
+                                        >
+                                          <span className="tree-node-leading">
+                                            <span aria-hidden="true" className="tree-item-icon catalog-item-icon" />
+                                          </span>
+
+                                          <span className="tree-node-copy">
+                                            <span className="tree-node-title">{getCatalogDisplayName(catalog.path)}</span>
+                                            <span className="tree-node-meta">{catalog.path}</span>
+                                          </span>
+                                        </button>
+                                      </div>
+                                    );
+                                  })
+                                )}
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+            <section aria-label="Explorer tools" className="explorer-tools-panel">
+              <p className="section-label">Tools</p>
+              <button className="explorer-tool-card" onClick={openComparePage} type="button">
+                <span className="explorer-tool-title">Compare bundles</span>
+                <span className="explorer-tool-description">
+                  Compare two bundle folders side by side and review the differences.
+                </span>
+              </button>
+            </section>
+          </div>
         </div>
       </aside>
 
       <section className="workspace-main">
-        <section className="hero-grid workspace-hero-grid">
-          <article className="surface masthead-card workspace-summary-card">
-            <div className="eyebrow-row">
-              <span className="helper-chip">{appInfo?.name ?? "Desktop workspace"}</span>
-              <span className="helper-chip">{appInfo?.platform ?? "Loading platform"}</span>
-            </div>
-
-            <h2>
-              {selectedProject
-                ? selectedProject.name
-                : "Choose a project to start defining connections"}
-            </h2>
-            <p className="lede workspace-lede">
-              The explorer keeps every project at the root and reveals Connections and Reports as
-              consistent subfolders underneath each one.
-            </p>
-
-            <div className="hero-actions">
-              <button
-                className="secondary-button"
-                onClick={() => {
-                  window.location.href = "/compare";
-                }}
-                type="button"
-              >
-                Compare bundles
-              </button>
-              <button
-                className="secondary-button"
-                onClick={() => {
-                  window.location.href = "/bip-download";
-                }}
-                type="button"
-              >
-                BIP downloadObject
-              </button>
-            </div>
-
-            {selectedProject ? (
-              <>
-                <div className="hero-summary-row">
-                  <div className="code-row">
-                    <span className="code-pill">{selectedProject.code}</span>
-                    {selectedProject.code === activeProject?.code ? (
-                      <span className="active-badge">Current</span>
-                    ) : null}
-                    <span className="helper-chip">
-                      {formatConnectionCount(selectedProject.connections.length)}
-                    </span>
-                    <span className="helper-chip">{formatReportCount(selectedProjectReportCount)}</span>
-                  </div>
-                </div>
-
-                <p className="active-description">{selectedProject.description}</p>
-
-                <div className="hero-actions">
-                  {selectedProject.code !== activeProject?.code ? (
-                    <button
-                      className="secondary-button"
-                      onClick={() => handleOpenProject(selectedProject.code)}
-                    >
-                      <RedwoodIcon className="button-icon" glyph={iconGlyphs.open} />
-                      Make current
-                    </button>
-                  ) : null}
-                  {isReportsView ? (
-                    <button
-                      className="primary-button"
-                      onClick={() => selectExplorerFolder(selectedProject.code, "connections")}
-                    >
-                      <RedwoodIcon className="button-icon" glyph={iconGlyphs.open} />
-                      Open connections
-                    </button>
-                  ) : (
-                    <button
-                      className="primary-button"
-                      onClick={() => beginNewConnection(selectedProject.code)}
-                    >
-                      <RedwoodIcon className="button-icon" glyph={iconGlyphs.add} />
-                      New connection
-                    </button>
-                  )}
-                  <button className="ghost-button" onClick={() => openDialog("manage-projects")}>
-                    <RedwoodIcon className="button-icon" glyph={iconGlyphs.manage} />
-                    Manage projects
-                  </button>
-                </div>
-
-                <div className="meta-list compact-meta-list">
-                  <div className="meta-item">
-                    <span className="meta-label">Created</span>
-                    <span className="meta-value">{formatTimestamp(selectedProject.createdAt)}</span>
-                  </div>
-                  <div className="meta-item">
-                    <span className="meta-label">Updated</span>
-                    <span className="meta-value">{formatTimestamp(selectedProject.updatedAt)}</span>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="empty-copy">
-                <span className="icon-badge subtle-icon-badge">
-                  <RedwoodIcon glyph={iconGlyphs.empty} />
-                </span>
-                <div>
-                  <p className="active-description">
-                    Add a project first, or open one from the menu, to start building a browsable
-                    project tree.
-                  </p>
-                </div>
-              </div>
-            )}
-          </article>
-
-          <aside className="surface active-card connection-overview-card">
-            <div className="card-heading">
-              <span className="icon-badge">
-                <RedwoodIcon glyph={iconGlyphs.current} />
-              </span>
-              <div>
-                <p className="section-label">Editor focus</p>
-                <h2>
-                  {isReportsView
-                    ? "Reports folder"
-                    : selectedConnection
-                    ? selectedConnection.name
-                    : selectedExplorerSection === "connections"
-                      ? "Connections folder"
-                    : selectedProject
-                      ? "Project overview"
-                      : "No project selected"}
-                </h2>
-              </div>
-            </div>
-
-            {selectedProject ? (
-              <>
-                <p className="active-description">
-                  {isReportsView
-                    ? `Browse report placeholders inside ${selectedProject.name}. This explorer branch is ready for report management next.`
-                    : selectedConnection
-                    ? `Review the selected connection, then open the modal when you want to update it.`
-                    : selectedExplorerSection === "connections"
-                      ? `Browse saved connections or open the add connection modal inside ${selectedProject.name}.`
-                      : `Choose an explorer branch, then open the modal when you want to add a connection.`}
-                </p>
-
-                <div className="meta-list">
-                  <div className="meta-item">
-                    <span className="meta-label">Project</span>
-                    <span className="meta-value">{selectedProject.code}</span>
-                  </div>
-                  <div className="meta-item">
-                    <span className="meta-label">Saved connections</span>
-                    <span className="meta-value">{selectedProject.connections.length}</span>
-                  </div>
-                  <div className="meta-item">
-                    <span className="meta-label">Reports</span>
-                    <span className="meta-value">{selectedProjectReportCount}</span>
-                  </div>
-                  <div className="meta-item">
-                    <span className="meta-label">Explorer node</span>
-                    <span className="meta-value">
-                      {isReportsView
-                        ? "Reports folder"
-                        : selectedExplorerSection === "connection"
-                          ? "Connection item"
-                          : selectedExplorerSection === "connections"
-                            ? "Connections folder"
-                            : "Project root"}
-                    </span>
-                  </div>
-                  <div className="meta-item">
-                    <span className="meta-label">Mode</span>
-                    <span className="meta-value">
-                      {isReportsView
-                        ? "Report placeholder"
-                        : selectedConnection
-                          ? "Inspect saved connection"
-                          : selectedExplorerSection === "project"
-                            ? "Project overview"
-                            : "Browse connections"}
-                    </span>
-                  </div>
-                  {selectedConnection && !isReportsView ? (
-                    <div className="meta-item">
-                      <span className="meta-label">Last updated</span>
-                      <span className="meta-value">{formatTimestamp(selectedConnection.updatedAt)}</span>
-                    </div>
-                  ) : null}
-                </div>
-              </>
-            ) : (
-              <div className="empty-copy">
-                <span className="icon-badge subtle-icon-badge">
-                  <RedwoodIcon glyph={iconGlyphs.empty} />
-                </span>
-                <div>
-                  <p className="active-description">
-                    Pick a project from the tree so the connection workspace can target it.
-                  </p>
-                </div>
-              </div>
-            )}
-          </aside>
-        </section>
-
-        <section className="detail-grid">
-          <article className="surface detail-card">
-            <div className="section-head">
-              <div>
-                <div className="section-title-row">
-                  <span className="icon-badge subtle-icon-badge">
-                    <RedwoodIcon glyph={iconGlyphs.projects} />
-                  </span>
-                  <div>
-                    <p className="section-label">
-                      {isReportsView ? "Reports folder" : "Connections folder"}
-                    </p>
-                    <h3>
-                      {selectedProject
-                        ? isReportsView
-                          ? `Reports inside ${selectedProject.name}`
-                          : `Connections inside ${selectedProject.name}`
-                        : "Choose a project to browse its explorer folders"}
-                    </h3>
-                  </div>
-                </div>
-                <p className="section-note">
-                  {isReportsView
-                    ? "The explorer already reserves a Reports branch for every project, even before report creation is wired in."
-                    : "The explorer keeps the Connections branch visible here as a quick companion to the tree on the left."}
-                </p>
-              </div>
-
-              {selectedProject && !isReportsView ? (
+        <section
+          className={`hero-grid workspace-hero-grid${isMetadataSectionVisible ? "" : " metadata-preview-hidden"}${
+            isEditorFocusCollapsed ? " editor-focus-section-collapsed" : ""
+          }`}
+        >
+          {isMetadataSectionVisible && metadataPreview ? (
+            <article className="surface masthead-card workspace-summary-card metadata-preview-card">
+              <div className="metadata-preview-actions">
+                <button
+                  className="secondary-button compact-button"
+                  disabled={isMetadataJsonDownloading}
+                  onClick={downloadMetadataPreviewJson}
+                  type="button"
+                >
+                  {isMetadataJsonDownloading ? "Downloading..." : "Download JSON"}
+                </button>
                 <button
                   className="ghost-button compact-button"
-                  onClick={() => beginNewConnection(selectedProject.code)}
+                  onClick={closeMetadataPreview}
+                  type="button"
                 >
-                  <RedwoodIcon className="button-icon" glyph={iconGlyphs.add} />
-                  Add connection
+                  Close
                 </button>
+              </div>
+
+              <h2 className="panel-heading">{getCatalogDisplayName(metadataPreview.catalogPath)} Metadata</h2>
+
+              <div className="metadata-preview-tabs" role="tablist" aria-label="Metadata preview tabs">
+                <button
+                  aria-selected={activeMetadataTab === "metadata"}
+                  className={`metadata-preview-tab${activeMetadataTab === "metadata" ? " is-active" : ""}`}
+                  onClick={() => setActiveMetadataTab("metadata")}
+                  role="tab"
+                  type="button"
+                >
+                  Metadata
+                </button>
+                <button
+                  aria-selected={activeMetadataTab === "overview"}
+                  className={`metadata-preview-tab${activeMetadataTab === "overview" ? " is-active" : ""}`}
+                  onClick={() => setActiveMetadataTab("overview")}
+                  role="tab"
+                  type="button"
+                >
+                  Overview
+                </button>
+              </div>
+
+              {activeMetadataTab === "metadata" ? (
+                <div aria-label="Metadata JSON preview" className="metadata-preview-shell" role="region">
+                  <div className="metadata-preview-code">
+                    {metadataPreviewLines.map((line, index) => (
+                      <div className="metadata-preview-line" key={`metadata-preview-line-${index + 1}`}>
+                        <span className="metadata-preview-line-number">{index + 1}</span>
+                        <code className="metadata-preview-line-content">
+                          {renderHighlightedJsonLine(line)}
+                        </code>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               ) : null}
+
+              {activeMetadataTab === "overview" ? (
+                <div className="metadata-overview-panel">
+                  <div className="meta-list metadata-preview-meta">
+                    {metadataOverviewItems.map((item) => (
+                      <div className="meta-item" key={item.label}>
+                        <span className="meta-label">{item.label}</span>
+                        <span className="meta-value">{item.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </article>
+          ) : null}
+
+          <aside className={`surface active-card connection-overview-card${isEditorFocusCollapsed ? " is-collapsed" : ""}`}>
+            <div className="editor-focus-header">
+              <h2
+                className={`panel-heading panel-heading-collapsible${
+                  isEditorFocusCollapsed ? " is-hidden" : ""
+                }`}
+              >
+                Editor Focus
+              </h2>
+
+              <HamburgerButton
+                controls="editor-focus-panel"
+                expanded={!isEditorFocusCollapsed}
+                label={isEditorFocusCollapsed ? "Expand editor focus section" : "Collapse editor focus section"}
+                onClick={toggleEditorFocusCollapsed}
+              />
             </div>
 
-            {selectedProject ? (
-              isReportsView ? (
-                <div className="empty-state compact-empty-state">
-                  <div className="empty-copy">
-                    <span className="icon-badge subtle-icon-badge">
-                      <RedwoodIcon glyph={iconGlyphs.empty} />
-                    </span>
-                    <div>
-                      <h4>No reports have been added yet</h4>
-                      <p>
-                        The Reports folder is now part of every project in the explorer. We can wire
-                        report creation, browsing, and storage into this branch next.
-                      </p>
+            <div
+              aria-hidden={isEditorFocusCollapsed}
+              className={`panel-body-shell editor-focus-panel-shell${
+                isEditorFocusCollapsed ? " is-collapsed" : ""
+              }`}
+              id="editor-focus-panel"
+            >
+              <div className="editor-focus-body">
+                <div className="meta-list editor-focus-metrics">
+                  {editorFocusMetrics.map((metric) => (
+                    <div className="meta-item" key={metric.label}>
+                      <span className="meta-label">{metric.label}</span>
+                      <span className="meta-value">{metric.value}</span>
                     </div>
-                  </div>
+                  ))}
                 </div>
-              ) : selectedProject.connections.length > 0 ? (
-                <div className="connection-list">
-                  {selectedProject.connections.map((connection) => {
-                    const isSelected = selectedConnection?.name === connection.name;
 
-                    return (
+                {selectedCatalog ? (
+                  <section className="editor-focus-history" aria-label="Metadata history">
+                    <div className="editor-focus-history-header">
+                      <h3 className="section-label">History</h3>
+                      {canOpenCachedMetadata ? (
+                        <button
+                          className="ghost-button compact-button"
+                          disabled={!selectedProject || isCachedMetadataLoading}
+                          onClick={() => {
+                            if (selectedProject) {
+                              void openCachedCatalogMetadata(selectedProject.code, selectedCatalog.path);
+                            }
+                          }}
+                          type="button"
+                        >
+                          {isCachedMetadataLoading ? "Opening..." : "Open Cached"}
+                        </button>
+                      ) : null}
+                    </div>
+
+                    {selectedCatalogHistory.length > 0 ? (
+                      <div className="editor-focus-history-list">
+                        {selectedCatalogHistory.slice(0, 10).map((entry) => (
+                          <article className="editor-focus-history-item" key={entry.id}>
+                            <div className="editor-focus-history-item-top">
+                              <span className={`history-status-pill is-${entry.status}`}>
+                                {entry.status === "success" ? "Success" : "Failed"}
+                              </span>
+                              <span className="editor-focus-history-time">
+                                {formatTimestamp(entry.completedAt)}
+                              </span>
+                            </div>
+                            <p className="editor-focus-history-detail">{entry.detail}</p>
+                            <div className="editor-focus-history-meta">
+                              <span>{entry.connectionName || "Unavailable"}</span>
+                              {entry.fileName ? <span>{entry.fileName}</span> : null}
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="editor-focus-history-empty">
+                        No metadata download attempts recorded for this catalog.
+                      </p>
+                    )}
+                  </section>
+                ) : null}
+
+                {editorFocusActions.length > 0 ? (
+                  <div className="editor-focus-actions" role="toolbar" aria-label="Editor focus actions">
+                    {editorFocusActions.map((action) => (
                       <button
-                        className={`connection-card${isSelected ? " is-selected" : ""}`}
-                        key={connection.name}
-                        onClick={() => selectConnection(selectedProject.code, connection.name)}
+                        className={`${getActionButtonClassName(action.tone)} compact-button`}
+                        disabled={action.disabled}
+                        key={`${action.tone}-${action.label}`}
+                        onClick={action.onClick}
                         type="button"
                       >
-                        <div className="connection-card-top">
-                          <div className="connection-card-copy">
-                            <strong>{connection.name}</strong>
-                            <span>{connection.username}</span>
-                          </div>
-                          <span className="code-pill connection-url-pill">Saved</span>
-                        </div>
-                        <p className="connection-url">{connection.url}</p>
-                        <div className="connection-card-meta">
-                          <span>Updated {formatTimestamp(connection.updatedAt)}</span>
-                        </div>
+                        {action.glyph ? (
+                          <RedwoodIcon className="button-icon" glyph={action.glyph} />
+                        ) : null}
+                        {action.label}
                       </button>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="empty-state compact-empty-state">
-                  <div className="empty-copy">
-                    <span className="icon-badge subtle-icon-badge">
-                      <RedwoodIcon glyph={iconGlyphs.empty} />
-                    </span>
-                    <div>
-                      <h4>No connections have been saved yet</h4>
-                      <p>
-                        Add the first connection for this project from the explorer or the
-                        connection modal.
-                      </p>
-                    </div>
+                    ))}
                   </div>
-                  <button
-                    className="primary-button"
-                    onClick={() => beginNewConnection(selectedProject.code)}
-                  >
-                    <RedwoodIcon className="button-icon" glyph={iconGlyphs.add} />
-                    Add connection
-                  </button>
-                </div>
-              )
-            ) : (
-              <div className="empty-state compact-empty-state">
-                <div className="empty-copy">
-                  <span className="icon-badge subtle-icon-badge">
-                    <RedwoodIcon glyph={iconGlyphs.empty} />
-                  </span>
-                  <div>
-                    <h4>No project is selected</h4>
-                    <p>Pick a project from the left navigation to browse its explorer folders.</p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </article>
-
-          <article className="surface detail-card inspector-card">
-            <div className="section-head">
-              <div>
-                <div className="section-title-row">
-                  <span className="icon-badge subtle-icon-badge">
-                    <RedwoodIcon glyph={iconGlyphs.workspace} />
-                  </span>
-                  <div>
-                    <p className="section-label">
-                      {isReportsView ? "Reports workspace" : "Connection details"}
-                    </p>
-                    <h3>
-                      {isReportsView
-                        ? selectedProject
-                          ? `Reports for ${selectedProject.name}`
-                          : "Select a project first"
-                        : selectedConnection
-                          ? selectedConnection.name
-                          : selectedProject
-                            ? `Connections in ${selectedProject.name}`
-                            : "Select a project first"}
-                    </h3>
-                  </div>
-                </div>
-                <p className="section-note">
-                  {isReportsView
-                    ? "This pane is reserved for report management. The explorer branch is live now, and the create or browse flow can plug in here next."
-                    : "Create and update flows now open in compact modals. Use this pane to inspect the selected connection or launch the editor."}
-                </p>
+                ) : null}
               </div>
             </div>
-
-            {selectedProject ? (
-              isReportsView ? (
-                <div className="empty-state compact-empty-state report-workspace-empty-state">
-                  <div className="empty-copy">
-                    <span className="icon-badge subtle-icon-badge">
-                      <RedwoodIcon glyph={iconGlyphs.empty} />
-                    </span>
-                    <div>
-                      <h4>Report management will land here next</h4>
-                      <p>
-                        You can already navigate to the Reports folder from the explorer. Once you
-                        share the report requirements, we can use this pane for report definitions,
-                        grouping, and execution.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="inspector-stack">
-                  <div className={`inline-banner tone-${connectionBanner.tone}`}>
-                    <p>{connectionBanner.message}</p>
-                    {connectionBanner.detail ? <small>{connectionBanner.detail}</small> : null}
-                  </div>
-
-                  {selectedConnection ? (
-                    <>
-                      <div className="inspector-grid">
-                        <div className="inspector-row">
-                          <span>Connection name</span>
-                          <strong>{selectedConnection.name}</strong>
-                        </div>
-                        <div className="inspector-row">
-                          <span>URL</span>
-                          <strong>{selectedConnection.url}</strong>
-                        </div>
-                        <div className="inspector-row">
-                          <span>Username</span>
-                          <strong>{selectedConnection.username}</strong>
-                        </div>
-                        <div className="inspector-row">
-                          <span>Password</span>
-                          <strong>Stored in the local app profile</strong>
-                        </div>
-                        <div className="inspector-row">
-                          <span>Updated</span>
-                          <strong>{formatTimestamp(selectedConnection.updatedAt)}</strong>
-                        </div>
-                      </div>
-
-                      <div className="dialog-actions inspector-actions">
-                        <button
-                          className="primary-button compact-button"
-                          disabled={isConnectionDeleting}
-                          onClick={() =>
-                            beginEditConnection(selectedProject.code, selectedConnection.name)
-                          }
-                          type="button"
-                        >
-                          <RedwoodIcon className="button-icon" glyph={iconGlyphs.open} />
-                          Edit connection
-                        </button>
-                        <button
-                          className="secondary-button compact-button"
-                          disabled={isConnectionDeleting}
-                          onClick={() => beginNewConnection(selectedProject.code)}
-                          type="button"
-                        >
-                          <RedwoodIcon className="button-icon" glyph={iconGlyphs.add} />
-                          New connection
-                        </button>
-                        <button
-                          className="danger-button compact-button"
-                          disabled={isConnectionDeleting}
-                          onClick={() =>
-                            requestDeleteConnection(selectedProject.code, selectedConnection.name)
-                          }
-                          type="button"
-                        >
-                          Delete connection
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="empty-state compact-empty-state inspector-empty-state">
-                      <div className="empty-copy">
-                        <span className="icon-badge subtle-icon-badge">
-                          <RedwoodIcon glyph={iconGlyphs.empty} />
-                        </span>
-                        <div>
-                          <h4>No connection is selected</h4>
-                          <p>
-                            Select a saved connection from the explorer, or open the add connection
-                            modal for {selectedProject.name}.
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        className="primary-button compact-button"
-                        onClick={() => beginNewConnection(selectedProject.code)}
-                        type="button"
-                      >
-                        <RedwoodIcon className="button-icon" glyph={iconGlyphs.add} />
-                        Add connection
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )
-            ) : (
-              <div className="empty-state compact-empty-state">
-                <div className="empty-copy">
-                  <span className="icon-badge subtle-icon-badge">
-                    <RedwoodIcon glyph={iconGlyphs.empty} />
-                  </span>
-                  <div>
-                    <h4>The workspace needs a project context</h4>
-                    <p>Select a project from the left navigation before editing explorer contents.</p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </article>
+          </aside>
         </section>
       </section>
+
+      <p aria-live="polite" className="sr-only">
+        {statusMessage}
+      </p>
 
       {isConnectionDialogOpen && selectedProject ? (
         <div className="dialog-backdrop" role="presentation" onClick={closeConnectionDialog}>
@@ -1519,7 +2144,7 @@ export default function HomePage() {
 
               <button
                 className="ghost-button compact-button"
-                disabled={isConnectionSaving || isConnectionTesting}
+                disabled={isConnectionSaving || isConnectionDeleting}
                 onClick={closeConnectionDialog}
                 type="button"
               >
@@ -1533,20 +2158,41 @@ export default function HomePage() {
                 {connectionBanner.detail ? <small>{connectionBanner.detail}</small> : null}
               </div>
 
-              <label className="field">
-                <span>Connection name</span>
-                <input
-                  value={connectionForm.name}
-                  onChange={(event) =>
-                    setConnectionForm((current) => ({
-                      ...current,
-                      name: event.target.value
-                    }))
-                  }
-                  placeholder="Finance Warehouse"
-                />
-                <small>Keep the name unique inside {selectedProject.name}.</small>
-              </label>
+              <div className="field-row">
+                <label className="field">
+                  <span>Connection name</span>
+                  <input
+                    value={connectionForm.name}
+                    onChange={(event) =>
+                      setConnectionForm((current) => ({
+                        ...current,
+                        name: event.target.value
+                      }))
+                    }
+                    placeholder="Finance Warehouse"
+                  />
+                  <small>Keep the name unique inside {selectedProject.name}.</small>
+                </label>
+
+                <label className="field">
+                  <span>Environment type</span>
+                  <select
+                    value={connectionForm.environmentType}
+                    onChange={(event) =>
+                      setConnectionForm((current) => ({
+                        ...current,
+                        environmentType: event.target.value as EnvironmentType
+                      }))
+                    }
+                  >
+                    {environmentTypeOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
 
               <label className="field">
                 <span>URL</span>
@@ -1559,8 +2205,10 @@ export default function HomePage() {
                       url: event.target.value
                     }))
                   }
-                  placeholder="https://example.oraclecloud.com/reporting"
+                  placeholder={connectionUrlPattern}
+                  title={`URL must match the pattern ${connectionUrlPattern}.`}
                 />
+                <small>URL must match the pattern {connectionUrlPattern}.</small>
               </label>
 
               <div className="field-row">
@@ -1569,12 +2217,12 @@ export default function HomePage() {
                   <input
                     value={connectionForm.username}
                     onChange={(event) =>
-                      setConnectionForm((current) => ({
-                        ...current,
-                        username: event.target.value
-                      }))
-                    }
-                    placeholder="report_admin"
+                    setConnectionForm((current) => ({
+                      ...current,
+                      username: event.target.value
+                    }))
+                  }
+                    placeholder="catalog_admin"
                   />
                 </label>
 
@@ -1596,25 +2244,226 @@ export default function HomePage() {
 
               <div className="dialog-actions modal-form-actions">
                 <button
-                  className="secondary-button compact-button"
-                  disabled={isConnectionSaving || isConnectionTesting || isConnectionDeleting}
-                  onClick={handleTestConnection}
-                  type="button"
-                >
-                  <RedwoodIcon className="button-icon" glyph={iconGlyphs.refresh} />
-                  {isConnectionTesting ? "Testing..." : "Test connection"}
-                </button>
-                <button
                   className="primary-button compact-button"
-                  disabled={isConnectionSaving || isConnectionTesting || isConnectionDeleting}
+                  disabled={isConnectionSaving || isConnectionDeleting}
                   type="submit"
                 >
                   {isConnectionSaving ? "Saving..." : "Save connection"}
                 </button>
+                {connectionDialogMode === "edit" && selectedConnection ? (
+                  <button
+                    className="danger-button compact-button"
+                    disabled={isConnectionSaving || isConnectionDeleting}
+                    onClick={() => {
+                      closeConnectionDialog();
+                      requestDeleteConnection(selectedProject.code, selectedConnection.name);
+                    }}
+                    type="button"
+                  >
+                    Delete connection
+                  </button>
+                ) : null}
                 <button
                   className="ghost-button compact-button"
-                  disabled={isConnectionSaving || isConnectionTesting || isConnectionDeleting}
+                  disabled={isConnectionSaving || isConnectionDeleting}
                   onClick={closeConnectionDialog}
+                  type="button"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {isCatalogDialogOpen && selectedProject ? (
+        <div className="dialog-backdrop" role="presentation" onClick={closeCatalogDialog}>
+          <div
+            className="surface dialog-shell connection-dialog-shell"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Add catalog path"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="dialog-header">
+              <div className="dialog-title">
+                <span className="icon-badge">
+                  <RedwoodIcon glyph={iconGlyphs.add} />
+                </span>
+                <div>
+                  <p className="section-label">Add catalog path</p>
+                  <h4>Create a saved catalog path in {selectedProject.name}</h4>
+                  <p className="dialog-copy">
+                    Choose a saved connection, validate the catalog path through CatalogService, then save it for later metadata download.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                className="ghost-button compact-button"
+                disabled={isCatalogSaving}
+                onClick={closeCatalogDialog}
+                type="button"
+              >
+                Close
+              </button>
+            </div>
+
+            {catalogDialogErrorMessage ? <p className="error-banner">{catalogDialogErrorMessage}</p> : null}
+
+            <form className="form-grid connection-form connection-modal-form" onSubmit={handleSaveCatalog}>
+              <label className="field">
+                <span>Connection</span>
+                <select
+                  value={catalogForm.connectionName}
+                  onChange={(event) =>
+                    setCatalogForm((current) => ({
+                      ...current,
+                      connectionName: event.target.value
+                    }))
+                  }
+                  disabled={selectedProject.connections.length === 0 || isCatalogSaving}
+                >
+                  {selectedProject.connections.length === 0 ? (
+                    <option value="">No saved connections</option>
+                  ) : null}
+                  {selectedProject.connections.map((connection) => (
+                    <option key={connection.name} value={connection.name}>
+                      {connection.name}
+                    </option>
+                  ))}
+                </select>
+                <small>Choose the saved connection used to validate this catalog path.</small>
+              </label>
+
+              <label className="field">
+                <span>Catalog folder absolute path</span>
+                <input
+                  value={catalogForm.path}
+                  onChange={(event) =>
+                    setCatalogForm((current) => ({
+                      ...current,
+                      path: event.target.value
+                    }))
+                  }
+                  placeholder="/Custom/Financials/TrialBalance"
+                />
+                <small>
+                  Use the absolute catalog path, keep it unique inside {selectedProject.name}, and it
+                  will be verified before save.
+                </small>
+              </label>
+
+              <div className="dialog-actions modal-form-actions">
+                <button
+                  className="primary-button compact-button"
+                  disabled={isCatalogSaving || selectedProject.connections.length === 0}
+                  type="submit"
+                >
+                  {isCatalogSaving ? "Saving..." : "Save catalog path"}
+                </button>
+                <button
+                  className="ghost-button compact-button"
+                  disabled={isCatalogSaving}
+                  onClick={closeCatalogDialog}
+                  type="button"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {isCatalogDownloadDialogOpen && selectedProject ? (
+        <div className="dialog-backdrop" role="presentation" onClick={closeCatalogDownloadDialog}>
+          <div
+            className="surface dialog-shell connection-dialog-shell"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Download catalog metadata"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="dialog-header">
+              <div className="dialog-title">
+                <span className="icon-badge">
+                  <RedwoodIcon glyph={iconGlyphs.open} />
+                </span>
+                <div>
+                  <p className="section-label">Download metadata</p>
+                  <h4>{getCatalogDisplayName(catalogDownloadForm.catalogPath || selectedProject.name)}</h4>
+                  <p className="dialog-copy">
+                    Validate the selected catalog through CatalogService, download it, generate metadata JSON, and cache it for preview.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                className="ghost-button compact-button"
+                disabled={isCatalogDownloading}
+                onClick={closeCatalogDownloadDialog}
+                type="button"
+              >
+                Close
+              </button>
+            </div>
+
+            <form className="form-grid connection-form connection-modal-form" onSubmit={handleDownloadCatalogMetadata}>
+              <div className="inline-banner tone-info">
+                <p>{catalogDownloadStatusMessage}</p>
+                <small>
+                  A project copy is still saved under `BIPJSON`, even when you also export JSON elsewhere.
+                </small>
+              </div>
+
+              {catalogDownloadErrorMessage ? <p className="error-banner">{catalogDownloadErrorMessage}</p> : null}
+
+              <label className="field">
+                <span>Connection</span>
+                <select
+                  value={catalogDownloadForm.connectionName}
+                  onChange={(event) =>
+                    setCatalogDownloadForm((current) => ({
+                      ...current,
+                      connectionName: event.target.value
+                    }))
+                  }
+                  disabled={selectedProject.connections.length === 0 || isCatalogDownloading}
+                >
+                  {selectedProject.connections.length === 0 ? (
+                    <option value="">No saved connections</option>
+                  ) : null}
+                  {selectedProject.connections.map((connection) => (
+                    <option key={connection.name} value={connection.name}>
+                      {connection.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="field">
+                <span>Catalog folder absolute path</span>
+                <input
+                  value={catalogDownloadForm.catalogPath}
+                  readOnly
+                />
+                <small>This path comes from the selected saved catalog item.</small>
+              </label>
+
+              <div className="dialog-actions modal-form-actions">
+                <button
+                  className="primary-button compact-button"
+                  disabled={selectedProject.connections.length === 0 || isCatalogDownloading}
+                  type="submit"
+                >
+                  {isCatalogDownloading ? "Downloading..." : "Download Metadata"}
+                </button>
+                <button
+                  className="ghost-button compact-button"
+                  disabled={isCatalogDownloading}
+                  onClick={closeCatalogDownloadDialog}
                   type="button"
                 >
                   Cancel
@@ -1634,6 +2483,8 @@ export default function HomePage() {
             aria-label={
               dialogMode === "add-project"
                 ? "Add project"
+                : dialogMode === "edit-project"
+                  ? "Edit project"
                 : dialogMode === "open-project"
                   ? "Open project"
                   : "Manage projects"
@@ -1647,6 +2498,8 @@ export default function HomePage() {
                     glyph={
                       dialogMode === "add-project"
                         ? iconGlyphs.add
+                        : dialogMode === "edit-project"
+                          ? iconGlyphs.manage
                         : dialogMode === "open-project"
                           ? iconGlyphs.open
                           : iconGlyphs.manage
@@ -1657,6 +2510,8 @@ export default function HomePage() {
                   <p className="section-label">
                     {dialogMode === "add-project"
                       ? "Add project"
+                      : dialogMode === "edit-project"
+                        ? "Edit project"
                       : dialogMode === "open-project"
                         ? "Open project"
                         : "Manage projects"}
@@ -1664,6 +2519,8 @@ export default function HomePage() {
                   <h4>
                     {dialogMode === "add-project"
                       ? "Create a new project entry"
+                      : dialogMode === "edit-project"
+                        ? `Update ${projectForm.code || "the selected project"}`
                       : dialogMode === "open-project"
                         ? "Choose a project to make current"
                         : "Review and delete saved projects"}
@@ -1671,6 +2528,8 @@ export default function HomePage() {
                   <p className="dialog-copy">
                     {dialogMode === "add-project"
                       ? "Keep the entry concise and use a unique project code."
+                      : dialogMode === "edit-project"
+                        ? "Update the project name and description without changing its saved code."
                       : dialogMode === "open-project"
                         ? "Select a project from the saved list and make it the current workspace."
                         : "Delete only the projects you no longer need to keep in the local list."}
@@ -1685,12 +2544,16 @@ export default function HomePage() {
 
             {dialogErrorMessage ? <p className="error-banner">{dialogErrorMessage}</p> : null}
 
-            {dialogMode === "add-project" ? (
-              <form className="form-grid" onSubmit={handleCreateProject}>
+            {dialogMode === "add-project" || dialogMode === "edit-project" ? (
+              <form
+                className="form-grid"
+                onSubmit={dialogMode === "edit-project" ? handleUpdateProject : handleCreateProject}
+              >
                 <label className="field">
                   <span>Project code</span>
                   <input
                     value={projectForm.code}
+                    disabled={dialogMode === "edit-project"}
                     onChange={(event) =>
                       setProjectForm((current) => ({
                         ...current,
@@ -1712,7 +2575,7 @@ export default function HomePage() {
                         name: event.target.value
                       }))
                     }
-                    placeholder="Quarterly reporting refresh"
+                    placeholder="Quarterly catalog refresh"
                   />
                 </label>
 
@@ -1727,15 +2590,37 @@ export default function HomePage() {
                         description: event.target.value
                       }))
                     }
-                    placeholder="Describe what this reporting project covers."
+                    placeholder="Describe what this catalog project covers."
                   />
                 </label>
 
                 <div className="dialog-actions">
                   <button className="primary-button" type="submit" disabled={isBusy}>
-                    <RedwoodIcon className="button-icon" glyph={iconGlyphs.add} />
-                    {isBusy ? "Saving..." : "Save project"}
+                    <RedwoodIcon
+                      className="button-icon"
+                      glyph={dialogMode === "edit-project" ? iconGlyphs.manage : iconGlyphs.add}
+                    />
+                    {isBusy
+                      ? dialogMode === "edit-project"
+                        ? "Saving..."
+                        : "Saving..."
+                      : dialogMode === "edit-project"
+                        ? "Save changes"
+                      : "Save project"}
                   </button>
+                  {dialogMode === "edit-project" ? (
+                    <button
+                      className="danger-button"
+                      disabled={isBusy}
+                      onClick={() => {
+                        closeDialog();
+                        requestDeleteProject(projectForm.code);
+                      }}
+                      type="button"
+                    >
+                      Delete project
+                    </button>
+                  ) : null}
                   <button className="ghost-button" type="button" onClick={closeDialog}>
                     Cancel
                   </button>
@@ -1915,6 +2800,38 @@ export default function HomePage() {
                 {isConnectionDeleting ? "Deleting..." : "Delete connection"}
               </button>
               <button className="ghost-button" onClick={closeDeleteConnectionDialog}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {pendingDeleteCatalog && pendingDeleteCatalogDetails ? (
+        <div className="dialog-backdrop" role="presentation" onClick={closeDeleteCatalogDialog}>
+          <div
+            className="surface confirm-shell"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Delete catalog"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <p className="section-label">Delete catalog</p>
+            <h4>Remove {getCatalogDisplayName(pendingDeleteCatalogDetails.path)} from this project?</h4>
+            <p className="dialog-copy">
+              This removes the saved catalog path from{" "}
+              <strong>{pendingDeleteCatalog.projectCode}</strong>. You can add it back later if needed.
+            </p>
+
+            <div className="dialog-actions">
+              <button
+                className="danger-button"
+                onClick={confirmDeleteCatalog}
+                disabled={isCatalogDeleting}
+              >
+                {isCatalogDeleting ? "Deleting..." : "Delete catalog"}
+              </button>
+              <button className="ghost-button" onClick={closeDeleteCatalogDialog}>
                 Cancel
               </button>
             </div>

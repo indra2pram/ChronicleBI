@@ -1,6 +1,6 @@
 import JSZip from "jszip";
 
-export type ComparisonCategory = "dataModel" | "reports" | "other";
+export type ComparisonCategory = "dataModel" | "catalogs" | "other";
 export type ComparisonStatus = "added" | "removed" | "changed" | "unchanged";
 
 export interface ParsedBundleFile {
@@ -227,7 +227,7 @@ function classifyCategory(filePath: string, content: string): ComparisonCategory
     extension === ".rdl" ||
     extension === ".jrxml"
   ) {
-    return "reports";
+    return "catalogs";
   }
 
   if (/<\s*dataModel\b/i.test(content) || /semantic model/i.test(content)) {
@@ -235,7 +235,7 @@ function classifyCategory(filePath: string, content: string): ComparisonCategory
   }
 
   if (/<\s*report\b/i.test(content) || /report definition/i.test(content)) {
-    return "reports";
+    return "catalogs";
   }
 
   return "other";
@@ -777,7 +777,7 @@ export async function parseUploadedBundle(file: File): Promise<ParsedBundle> {
 export function compareBundles(left: ParsedBundle, right: ParsedBundle): ComparisonResult {
   const fileEntries = compareFiles(left.files, right.files);
   const dataModelEntries = fileEntries.filter((entry) => entry.category === "dataModel");
-  const reportEntries = fileEntries.filter((entry) => entry.category === "reports");
+  const catalogEntries = fileEntries.filter((entry) => entry.category === "catalogs");
   const otherEntries = fileEntries.filter((entry) => entry.category === "other");
   const queries = compareTokens(collectQueryTokens(left.files), collectQueryTokens(right.files));
   const properties = compareTokens(
@@ -809,7 +809,7 @@ export function compareBundles(left: ParsedBundle, right: ParsedBundle): Compari
     },
     categories: {
       dataModel: summarizeCategory(dataModelEntries),
-      reports: summarizeCategory(reportEntries),
+      catalogs: summarizeCategory(catalogEntries),
       other: summarizeCategory(otherEntries)
     },
     queries,

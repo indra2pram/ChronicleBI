@@ -2,8 +2,11 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Electron + Next.js Boilerplate",
-  description: "A starter desktop application powered by Electron and Next.js."
+  title: "Chronicle BI",
+  description: "Chronicle BI desktop workspace for projects, connections, and catalog metadata.",
+  icons: {
+    icon: "/assets/icons/chronicle_bi_symbol.ico"
+  }
 };
 
 export default function RootLayout({

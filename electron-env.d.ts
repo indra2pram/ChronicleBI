@@ -13,11 +13,18 @@ interface ProjectDraft {
   description: string;
 }
 
+type EnvironmentType = "Dev" | "Test" | "Prod";
+
 interface ConnectionDraft {
   name: string;
   url: string;
   username: string;
   password: string;
+  environmentType: EnvironmentType;
+}
+
+interface CatalogDraft {
+  path: string;
 }
 
 interface StoredConnection extends ConnectionDraft {
@@ -25,10 +32,26 @@ interface StoredConnection extends ConnectionDraft {
   updatedAt: string;
 }
 
-interface ConnectionTestResult {
-  status: "passed";
-  message: string;
-  testedAt: string;
+type CatalogMetadataHistoryStatus = "success" | "failed";
+
+interface CatalogMetadataHistoryEntry {
+  id: string;
+  requestedAt: string;
+  completedAt: string;
+  status: CatalogMetadataHistoryStatus;
+  connectionName: string;
+  fileName: string | null;
+  detail: string;
+}
+
+interface StoredCatalog extends CatalogDraft {
+  createdAt: string;
+  updatedAt: string;
+  latestMetadataFileName: string | null;
+  latestMetadataTempPath: string | null;
+  latestMetadataConnectionName: string | null;
+  latestMetadataDownloadedAt: string | null;
+  metadataHistory: CatalogMetadataHistoryEntry[];
 }
 
 interface BipPayloadMetadata {
@@ -45,7 +68,7 @@ interface BipPayloadMetadata {
 
 interface BipDownloadMetadata {
   generatedAt: string;
-  reportPath: string;
+  catalogPath: string;
   payload: BipPayloadMetadata;
   extraction?: Record<string, unknown>;
   structure?: Record<string, unknown>;
@@ -62,7 +85,7 @@ interface BipDownloadResult {
   endpoint: string;
   variantUsed: string;
   httpStatus: number;
-  reportPath: string;
+  catalogPath: string;
   downloadObjectReturn: string;
   payloadBase64Length: number;
   payloadDecodedBytes: number | null;
@@ -73,12 +96,29 @@ interface BipDownloadResult {
   metadataSavedPath: string;
   metadataSavedFolder: string;
   bipJsonRootFolder: string;
+  tempMetadataPath: string;
+}
+
+interface MetadataSaveResult {
+  canceled: boolean;
+  filePath: string | null;
+}
+
+interface CachedCatalogMetadata {
+  fileName: string;
+  filePath: string;
+  projectCode: string;
+  catalogPath: string;
+  connectionName: string | null;
+  downloadedAt: string | null;
+  content: string;
 }
 
 interface StoredProject extends ProjectDraft {
   createdAt: string;
   updatedAt: string;
   connections: StoredConnection[];
+  catalogs: StoredCatalog[];
 }
 
 interface ProjectState {
@@ -95,23 +135,38 @@ interface Window {
     getProjectState: () => Promise<ProjectState>;
     createProject: (project: ProjectDraft) => Promise<ProjectState>;
     openProject: (projectCode: string) => Promise<ProjectState>;
+    updateProject: (projectCode: string, project: ProjectDraft) => Promise<ProjectState>;
     deleteProject: (projectCode: string) => Promise<ProjectState>;
+    saveCatalog: (
+      projectCode: string,
+      catalog: CatalogDraft,
+      existingCatalogPath?: string | null
+    ) => Promise<ProjectState>;
+    validateCatalogPath: (
+      projectCode: string,
+      connectionName: string,
+      catalogPath: string
+    ) => Promise<void>;
+    deleteCatalog: (projectCode: string, catalogPath: string) => Promise<ProjectState>;
     saveConnection: (
       projectCode: string,
       connection: ConnectionDraft,
       existingConnectionName?: string | null
     ) => Promise<ProjectState>;
     deleteConnection: (projectCode: string, connectionName: string) => Promise<ProjectState>;
-    testConnection: (
-      projectCode: string,
-      connection: ConnectionDraft,
-      existingConnectionName?: string | null
-    ) => Promise<ConnectionTestResult>;
     downloadBipObject: (
       projectCode: string,
       connectionName: string,
-      reportPath: string
+      catalogPath: string
     ) => Promise<BipDownloadResult>;
+    getCachedCatalogMetadata: (
+      projectCode: string,
+      catalogPath: string
+    ) => Promise<CachedCatalogMetadata>;
+    saveMetadataJson: (
+      defaultFileName: string,
+      metadata: BipDownloadMetadata
+    ) => Promise<MetadataSaveResult>;
     onMenuAction: (callback: (command: ProjectMenuAction) => void) => () => void;
   };
 }
