@@ -2,6 +2,9 @@
   display: grid;
   gap: 1rem;
   width: min(1520px, calc(100% - 1.5rem));
+  height: calc(100vh - 1.5rem);
+  min-height: 0;
+  overflow: hidden;
 }
 
 .heroCard {
@@ -18,13 +21,13 @@
 
 .heroTop h1 {
   max-width: 18ch;
+  margin: 0;
 }
 
-.heroCopy {
-  max-width: 70ch;
-  margin: 0.7rem 0 0;
+.heroSubtitle {
+  margin: 0.45rem 0 0;
   color: var(--text-subtle);
-  line-height: 1.6;
+  font-size: 0.92rem;
 }
 
 .uploadGrid {
@@ -84,6 +87,10 @@
 .resultsStack {
   display: grid;
   gap: 0.95rem;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 0.1rem;
 }
 
 .resultMetaCard {
@@ -139,6 +146,7 @@
   justify-content: space-between;
   gap: 0.95rem;
   align-items: flex-start;
+  flex-wrap: wrap;
 }
 
 .sectionNote {
@@ -179,7 +187,8 @@
 
 .tableWrap {
   margin-top: 0.85rem;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: visible;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
 }
@@ -187,6 +196,7 @@
 .resultTable {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
   font-size: 0.9rem;
 }
 
@@ -196,6 +206,8 @@
   border-top: 1px solid var(--border);
   vertical-align: top;
   text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .resultTable thead th {
@@ -208,7 +220,9 @@
 .pathCell {
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
   font-size: 0.82rem;
+  white-space: normal;
   word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .statusChip {
@@ -243,6 +257,11 @@
 .emptyCopy {
   margin: 0.85rem 0 0;
   color: var(--text-subtle);
+}
+
+.bundleMetaCard small,
+.bundleMetaCard strong {
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 1080px) {

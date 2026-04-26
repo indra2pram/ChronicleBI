@@ -181,6 +181,11 @@ interface Window {
       catalogPath: string,
       historyEntryId?: string | null
     ) => Promise<CachedCatalogMetadata>;
+    deleteCatalogMetadataHistoryEntry: (
+      projectCode: string,
+      catalogPath: string,
+      historyEntryId: string
+    ) => Promise<ProjectState>;
     saveMetadataJson: (
       defaultFileName: string,
       metadata: BipDownloadMetadata

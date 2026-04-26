@@ -24,6 +24,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("catalog:download-to-file", projectCode, connectionName, catalogPath),
   getCachedCatalogMetadata: (projectCode, catalogPath, historyEntryId) =>
     ipcRenderer.invoke("catalog:get-cached-metadata", projectCode, catalogPath, historyEntryId),
+  deleteCatalogMetadataHistoryEntry: (projectCode, catalogPath, historyEntryId) =>
+    ipcRenderer.invoke("catalog:delete-history-entry", projectCode, catalogPath, historyEntryId),
   saveMetadataJson: (defaultFileName, metadata) =>
     ipcRenderer.invoke("metadata:save-json", defaultFileName, metadata),
   onMenuAction: (callback) => {

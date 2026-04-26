@@ -680,6 +680,96 @@ async function recordCatalogMetadataDownload(projectCode, catalogPath, historyIn
   return persistedState;
 }
 
+async function deleteCatalogMetadataHistoryEntry(projectCode, catalogPath, historyEntryId) {
+  const code = String(projectCode ?? "").trim();
+  const normalizedCatalogPath = String(catalogPath ?? "").trim();
+  const normalizedHistoryEntryId = String(historyEntryId ?? "").trim();
+
+  if (!code) {
+    throw new Error("Choose a project before deleting catalog metadata history.");
+  }
+
+  if (!normalizedCatalogPath) {
+    throw new Error("Choose a catalog path before deleting metadata history.");
+  }
+
+  if (!normalizedHistoryEntryId) {
+    throw new Error("Choose a metadata history entry to delete.");
+  }
+
+  const projectState = await readProjectState();
+  const { project, projectIndex } = ensureProjectExists(
+    projectState,
+    code,
+    "Choose a project before deleting catalog metadata history."
+  );
+  const catalogIndex = getCatalogIndex(project.catalogs, normalizedCatalogPath);
+
+  if (catalogIndex < 0) {
+    throw new Error("The selected catalog path was not found.");
+  }
+
+  const nextCatalogs = [...project.catalogs];
+  const currentCatalog = nextCatalogs[catalogIndex];
+  const historyEntryToDelete =
+    currentCatalog.metadataHistory.find((entry) => entry.id === normalizedHistoryEntryId) ?? null;
+
+  if (!historyEntryToDelete) {
+    throw new Error("The selected metadata history entry was not found.");
+  }
+
+  const nextHistory = currentCatalog.metadataHistory.filter((entry) => entry.id !== normalizedHistoryEntryId);
+  const nextCatalog = {
+    ...currentCatalog,
+    metadataHistory: nextHistory,
+    updatedAt: new Date().toISOString()
+  };
+
+  if (
+    currentCatalog.latestMetadataTempPath &&
+    currentCatalog.latestMetadataTempPath === historyEntryToDelete.tempFilePath
+  ) {
+    const nextLatestHistoryEntry = nextHistory.find((entry) => entry.tempFilePath) ?? null;
+
+    nextCatalog.latestMetadataFileName = nextLatestHistoryEntry?.fileName ?? null;
+    nextCatalog.latestMetadataTempPath = nextLatestHistoryEntry?.tempFilePath ?? null;
+    nextCatalog.latestMetadataConnectionName = nextLatestHistoryEntry?.connectionName ?? null;
+    nextCatalog.latestMetadataDownloadedAt = nextLatestHistoryEntry?.completedAt ?? null;
+  }
+
+  nextCatalogs[catalogIndex] = nextCatalog;
+
+  const nextProjects = [...projectState.projects];
+  nextProjects[projectIndex] = {
+    ...project,
+    catalogs: nextCatalogs,
+    updatedAt: nextCatalog.updatedAt
+  };
+
+  const persistedState = await writeProjectState({
+    ...projectState,
+    projects: nextProjects
+  });
+
+  const retainedTempPaths = new Set(
+    [nextCatalog.latestMetadataTempPath, ...nextHistory.map((entry) => entry.tempFilePath)].filter(Boolean)
+  );
+
+  if (
+    historyEntryToDelete.tempFilePath &&
+    !retainedTempPaths.has(historyEntryToDelete.tempFilePath) &&
+    isPathInsideDirectory(historyEntryToDelete.tempFilePath, getCatalogMetadataTempRoot())
+  ) {
+    await fs.unlink(historyEntryToDelete.tempFilePath).catch((error) => {
+      if (error && error.code !== "ENOENT") {
+        throw error;
+      }
+    });
+  }
+
+  return persistedState;
+}
+
 async function saveConnection(projectCode, connectionInput, existingConnectionName) {
   const code = String(projectCode ?? "").trim();
 
@@ -835,6 +925,7 @@ async function deleteCatalog(projectCode, catalogPath) {
 
 module.exports = {
   createProject,
+  deleteCatalogMetadataHistoryEntry,
   recordCatalogMetadataDownload,
   saveCatalog,
   deleteCatalog,

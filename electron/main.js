@@ -9,6 +9,7 @@ const { app, BrowserWindow, dialog, ipcMain, Menu } = require("electron");
 const {
   createProject,
   deleteCatalog,
+  deleteCatalogMetadataHistoryEntry,
   recordCatalogMetadataDownload,
   saveCatalog,
   deleteConnection,
@@ -197,25 +198,23 @@ function decodeDownloadedCatalogPayload(downloadResult) {
 }
 
 function getDefaultCatalogDownloadFileName(downloadResult) {
-  const payloadName = String(downloadResult?.metadata?.payload?.rootPayloadName ?? "").trim();
+  const catalogName = sanitizePathSegment(
+    path.posix.basename(String(downloadResult?.catalogPath ?? "").replace(/\\/g, "/"))
+  ).replace(/\.xdrz$/i, "");
 
-  if (payloadName) {
-    return path.posix.basename(payloadName);
-  }
-
-  const catalogName = path.posix.basename(String(downloadResult?.catalogPath ?? "").replace(/\\/g, "/"));
-  return catalogName || "catalog-download.bin";
+  return `${catalogName || "catalog"}.xdrz`;
 }
 
 function resolveCatalogDownloadFilePath(filePath, defaultFileName) {
   const targetPath = String(filePath ?? "").trim();
   const defaultExtension = path.extname(String(defaultFileName ?? "").trim());
 
-  if (!targetPath || path.extname(targetPath) || !defaultExtension) {
+  if (!targetPath || !defaultExtension) {
     return targetPath;
   }
 
-  return `${targetPath}${defaultExtension}`;
+  const parsedTargetPath = path.parse(targetPath);
+  return path.join(parsedTargetPath.dir, `${parsedTargetPath.name}${defaultExtension}`);
 }
 
 async function downloadCatalogToFile(projectCode, connectionName, catalogPath) {
@@ -223,7 +222,13 @@ async function downloadCatalogToFile(projectCode, connectionName, catalogPath) {
   const defaultFileName = getDefaultCatalogDownloadFileName(result);
   const saveDialogResult = await dialog.showSaveDialog(mainWindow ?? undefined, {
     title: "Download catalog",
-    defaultPath: defaultFileName
+    defaultPath: defaultFileName,
+    filters: [
+      {
+        name: "Catalog bundles",
+        extensions: ["xdrz"]
+      }
+    ]
   });
 
   if (saveDialogResult.canceled || !saveDialogResult.filePath) {
@@ -338,6 +343,9 @@ function registerIpcHandlers() {
   ipcMain.handle("catalog:get-cached-metadata", (_event, projectCode, catalogPath, historyEntryId) =>
     getCachedCatalogMetadata(projectCode, catalogPath, historyEntryId)
   );
+  ipcMain.handle("catalog:delete-history-entry", (_event, projectCode, catalogPath, historyEntryId) =>
+    deleteCatalogMetadataHistoryEntry(projectCode, catalogPath, historyEntryId)
+  );
   ipcMain.handle("catalog:download-to-file", (_event, projectCode, connectionName, catalogPath) =>
     downloadCatalogToFile(projectCode, connectionName, catalogPath)
   );
@@ -445,6 +453,44 @@ async function startRendererServer() {
   });
 }
 
+function shouldToggleDevTools(input) {
+  if (!input || input.type !== "keyDown") {
+    return false;
+  }
+
+  const key = String(input.key ?? "").toLowerCase();
+
+  if (key === "f12") {
+    return true;
+  }
+
+  if (process.platform === "darwin") {
+    return input.meta && input.alt && key === "i";
+  }
+
+  return input.control && input.shift && key === "i";
+}
+
+function attachWindowShortcuts(window) {
+  window.webContents.on("before-input-event", (event, input) => {
+    if (!shouldToggleDevTools(input)) {
+      return;
+    }
+
+    event.preventDefault();
+
+    if (window.webContents.isDevToolsOpened()) {
+      window.webContents.closeDevTools();
+      return;
+    }
+
+    window.webContents.openDevTools({
+      mode: "detach",
+      activate: true
+    });
+  });
+}
+
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1320,
@@ -467,6 +513,8 @@ function createMainWindow() {
   mainWindow.once("ready-to-show", () => {
     mainWindow?.show();
   });
+
+  attachWindowShortcuts(mainWindow);
 
   mainWindow.webContents.on("did-finish-load", () => {
     if (!queuedMenuCommand) {

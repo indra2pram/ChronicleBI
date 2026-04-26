@@ -56,6 +56,10 @@ function summaryValue(value: number, singular: string, plural = `${singular}s`) 
   return `${value} ${value === 1 ? singular : plural}`;
 }
 
+function isValidCatalogBundle(file: File) {
+  return file.name.toLowerCase().endsWith(".xdrz");
+}
+
 function CategorySection({
   heading,
   note,
@@ -198,7 +202,7 @@ export default function ComparePage() {
   const [result, setResult] = useState<ComparisonResult | null>(null);
 
   const canCompare = Boolean(leftFile && rightFile && !isComparing);
-  const compareLabel = isComparing ? "Comparing files..." : "Compare bundles";
+  const compareLabel = isComparing ? "Comparing catalogs..." : "Compare Catalogs";
 
   const generatedAtLabel = useMemo(() => {
     if (!result) {
@@ -221,18 +225,41 @@ export default function ComparePage() {
   }
 
   function onLeftFileChange(event: ChangeEvent<HTMLInputElement>) {
-    setLeftFile(event.target.files?.[0] ?? null);
     clearResult();
+    const nextFile = event.target.files?.[0] ?? null;
+
+    if (nextFile && !isValidCatalogBundle(nextFile)) {
+      event.target.value = "";
+      setLeftFile(null);
+      setErrorMessage("Select a valid .xdrz catalog file.");
+      return;
+    }
+
+    setLeftFile(nextFile);
   }
 
   function onRightFileChange(event: ChangeEvent<HTMLInputElement>) {
-    setRightFile(event.target.files?.[0] ?? null);
     clearResult();
+    const nextFile = event.target.files?.[0] ?? null;
+
+    if (nextFile && !isValidCatalogBundle(nextFile)) {
+      event.target.value = "";
+      setRightFile(null);
+      setErrorMessage("Select a valid .xdrz catalog file.");
+      return;
+    }
+
+    setRightFile(nextFile);
   }
 
   async function runComparison() {
     if (!leftFile || !rightFile) {
       setErrorMessage("Select both files before starting the comparison.");
+      return;
+    }
+
+    if (!isValidCatalogBundle(leftFile) || !isValidCatalogBundle(rightFile)) {
+      setErrorMessage("Select a valid .xdrz catalog file.");
       return;
     }
 
@@ -259,13 +286,8 @@ export default function ComparePage() {
       <section className={`surface ${styles.heroCard}`}>
         <div className={styles.heroTop}>
           <div>
-            <p className="section-label">Bundle comparison</p>
-            <h1>Upload and compare two artifacts</h1>
-            <p className={styles.heroCopy}>
-              Upload any two files. If a file is a zip, nested zip content is unpacked recursively
-              and text files are compared by path. The comparison includes Data Model and Catalogs plus
-              Query and Property changes.
-            </p>
+            <h1>Compare Catalogs</h1>
+            <p className={styles.heroSubtitle}>Upload and compare two Catalogs</p>
           </div>
           <button className="ghost-button compact-button" type="button" onClick={() => (window.location.href = "/")}>
             Back to workspace
@@ -275,27 +297,27 @@ export default function ComparePage() {
         <div className={styles.uploadGrid}>
           <label className={styles.uploadCard}>
             <span className={styles.uploadTitle}>Baseline file</span>
-            <input type="file" onChange={onLeftFileChange} />
+            <input accept=".xdrz" type="file" onChange={onLeftFileChange} />
             {leftFile ? (
               <p className={styles.fileMeta}>
                 <strong>{leftFile.name}</strong>
                 <span>{formatBytes(leftFile.size)}</span>
               </p>
             ) : (
-              <p className={styles.fileMeta}>Select source file or zip.</p>
+              <p className={styles.fileMeta}>select .xdrz catalog file</p>
             )}
           </label>
 
           <label className={styles.uploadCard}>
             <span className={styles.uploadTitle}>Target file</span>
-            <input type="file" onChange={onRightFileChange} />
+            <input accept=".xdrz" type="file" onChange={onRightFileChange} />
             {rightFile ? (
               <p className={styles.fileMeta}>
                 <strong>{rightFile.name}</strong>
                 <span>{formatBytes(rightFile.size)}</span>
               </p>
             ) : (
-              <p className={styles.fileMeta}>Select target file or zip.</p>
+              <p className={styles.fileMeta}>select .xdrz catalog file</p>
             )}
           </label>
         </div>

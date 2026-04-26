@@ -28,7 +28,6 @@ const defaultConnectionForm: ConnectionDraft = {
 
 const connectionUrlPattern = "https://*.fa.ocs.oraclecloud.com";
 const environmentTypeOptions: ReadonlyArray<EnvironmentType> = ["Dev", "Test", "Prod"];
-const uiIconAssetPath = "/assets/icons/desktop_app_icon_pack/png/app_icon_24x24.png";
 
 type ExplorerSection = "project" | "connections" | "catalogs" | "connection" | "catalog";
 type ExplorerFolderName = "connections" | "catalogs";
@@ -50,6 +49,8 @@ type AppIconKind =
   | "catalogs"
   | "catalog"
   | "tool"
+  | "trash"
+  | "close-square"
   | "empty";
 
 interface BannerState {
@@ -167,6 +168,10 @@ function getCatalogDisplayName(catalogPath: string) {
   return segments[segments.length - 1] ?? catalogPath;
 }
 
+function isEnvironmentType(value: string | number): value is EnvironmentType {
+  return environmentTypeOptions.includes(value as EnvironmentType);
+}
+
 function getDefaultExpandedFolders(): ExpandedFolderState {
   return {
     connections: false,
@@ -270,9 +275,225 @@ function AppIcon({
   kind: AppIconKind;
   className?: string;
 }>) {
+  const oracleReferenceClassName =
+    kind === "connections" || kind === "catalogs"
+      ? "oj-ux-ico-folder-closed"
+      : kind === "connection"
+        ? "oj-ux-ico-connection"
+        : kind === "catalog"
+          ? "oj-ux-ico-report"
+          : kind === "trash"
+            ? "oj-ux-ico-trash"
+            : kind === "close-square"
+              ? "oj-ux-ico-close-square"
+              : "";
+
+  function renderIconShape() {
+    if (kind === "projects") {
+      return (
+        <svg aria-hidden="true" className="ui-icon-svg" viewBox="0 0 24 24">
+          <path
+            d="M4 5.5h16v13H4zM8 3.5h8v2H8zM7.5 9h3v3h-3zm6 0h3v3h-3zm-6 5h3v3h-3zm6 0h3v3h-3z"
+            fill="currentColor"
+          />
+        </svg>
+      );
+    }
+
+    if (kind === "connections" || kind === "catalogs") {
+      return (
+        <svg aria-hidden="true" className="ui-icon-svg" viewBox="0 0 24 24">
+          <path
+            d="M3.5 7.5h6l1.6 1.8H20a1 1 0 0 1 1 1v6.7a1.5 1.5 0 0 1-1.5 1.5H4.5A1.5 1.5 0 0 1 3 17V8.5a1 1 0 0 1 .5-1z"
+            fill="currentColor"
+          />
+          <path d="M3 9.2h18v1.5H3z" fill="rgba(255,255,255,0.5)" />
+        </svg>
+      );
+    }
+
+    if (kind === "connection") {
+      return (
+        <svg aria-hidden="true" className="ui-icon-svg" viewBox="0 0 24 24">
+          <path
+            d="M7.5 4.5h2v4.2h5V4.5h2v4.3a3.3 3.3 0 0 1-2.7 3.2v2.7l2.8 2.8-1.4 1.4-3.4-3.4V12H11v3.5l-3.4 3.4-1.4-1.4 2.8-2.8V12a3.3 3.3 0 0 1-2.7-3.2z"
+            fill="currentColor"
+          />
+        </svg>
+      );
+    }
+
+    if (kind === "catalog") {
+      return (
+        <svg aria-hidden="true" className="ui-icon-svg" viewBox="0 0 24 24">
+          <path
+            d="M6 3.5h8.4L19 8.1V20H6zM14 4.9V9h4.1"
+            fill="none"
+            stroke="currentColor"
+            strokeLinecap="square"
+            strokeLinejoin="miter"
+            strokeWidth="1.8"
+          />
+          <path d="M8.5 12.2h7M8.5 15.2h7" stroke="currentColor" strokeWidth="1.8" />
+        </svg>
+      );
+    }
+
+    if (kind === "add") {
+      return (
+        <svg aria-hidden="true" className="ui-icon-svg" viewBox="0 0 24 24">
+          <path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z" fill="currentColor" />
+        </svg>
+      );
+    }
+
+    if (kind === "open") {
+      return (
+        <svg aria-hidden="true" className="ui-icon-svg" viewBox="0 0 24 24">
+          <path
+            d="M4 7.5h6l1.8 2H20v7.8H4z"
+            fill="none"
+            stroke="currentColor"
+            strokeLinejoin="miter"
+            strokeWidth="1.8"
+          />
+          <path d="M11 15.8l4.2-4.1H12.7V8.9h-1.9v2.8H8.3z" fill="currentColor" />
+        </svg>
+      );
+    }
+
+    if (kind === "manage") {
+      return (
+        <svg aria-hidden="true" className="ui-icon-svg" viewBox="0 0 24 24">
+          <path d="M5 7h14v2H5zm0 8h14v2H5zM9 5h2v6H9zm4 8h2v6h-2z" fill="currentColor" />
+        </svg>
+      );
+    }
+
+    if (kind === "refresh") {
+      return (
+        <svg aria-hidden="true" className="ui-icon-svg" viewBox="0 0 24 24">
+          <path
+            d="M17.8 10A6 6 0 1 0 18 13.5M18 6v4h-4"
+            fill="none"
+            stroke="currentColor"
+            strokeLinecap="square"
+            strokeLinejoin="miter"
+            strokeWidth="1.8"
+          />
+        </svg>
+      );
+    }
+
+    if (kind === "tool") {
+      return (
+        <svg aria-hidden="true" className="ui-icon-svg" viewBox="0 0 24 24">
+          <path
+            d="M14.5 4.5a4 4 0 0 0-2.4 6.9l-6.2 6.2 1.8 1.8 6.2-6.2a4 4 0 0 0 5-5L16 10l-2-2z"
+            fill="currentColor"
+          />
+        </svg>
+      );
+    }
+
+    if (kind === "trash") {
+      return (
+        <svg aria-hidden="true" className="ui-icon-svg" viewBox="0 0 24 24">
+          <path
+            d="M8 6.5h8M10 4.5h4M7 6.5l.7 12h8.6L17 6.5M10 10v5.5M14 10v5.5"
+            fill="none"
+            stroke="currentColor"
+            strokeLinecap="square"
+            strokeLinejoin="miter"
+            strokeWidth="1.8"
+          />
+        </svg>
+      );
+    }
+
+    if (kind === "close-square") {
+      return (
+        <svg aria-hidden="true" className="ui-icon-svg" viewBox="0 0 24 24">
+          <path
+            d="M5 5h14v14H5zM9 9l6 6M15 9l-6 6"
+            fill="none"
+            stroke="currentColor"
+            strokeLinecap="square"
+            strokeLinejoin="miter"
+            strokeWidth="1.8"
+          />
+        </svg>
+      );
+    }
+
+    return (
+      <svg aria-hidden="true" className="ui-icon-svg" viewBox="0 0 24 24">
+        <path
+          d="M6 6h12v12H6zM9 9h6v6H9z"
+          fill="none"
+          stroke="currentColor"
+          strokeLinecap="square"
+          strokeLinejoin="miter"
+          strokeWidth="1.8"
+        />
+      </svg>
+    );
+  }
+
   return (
-    <span aria-hidden="true" className={`ui-icon ui-icon-${kind} ${className}`.trim()}>
-      <img alt="" className="ui-icon-image" draggable={false} src={uiIconAssetPath} />
+    <span
+      aria-hidden="true"
+      className={`ui-icon ui-icon-${kind} ${oracleReferenceClassName} ${className}`.trim()}
+    >
+      {renderIconShape()}
+    </span>
+  );
+}
+
+function IconOnlyButton({
+  className = "",
+  disabled,
+  kind,
+  label,
+  onClick,
+  tone = "neutral",
+  type = "button"
+}: Readonly<{
+  className?: string;
+  disabled?: boolean;
+  kind: "trash" | "close-square";
+  label: string;
+  onClick: () => void;
+  tone?: "neutral" | "danger";
+  type?: "button" | "submit";
+}>) {
+  return (
+    <button
+      aria-label={label}
+      className={`icon-only-button icon-only-button-${tone} ${className}`.trim()}
+      disabled={disabled}
+      onClick={onClick}
+      title={label}
+      type={type}
+    >
+      <AppIcon className="icon-only-button-icon" kind={kind} />
+    </button>
+  );
+}
+
+function EnvironmentBadge({
+  environmentType
+}: Readonly<{
+  environmentType: EnvironmentType | null;
+}>) {
+  const normalizedEnvironmentType = environmentType ?? "Dev";
+
+  return (
+    <span
+      className={`environment-badge environment-badge-${normalizedEnvironmentType.toLowerCase()}`}
+      title={`Environment: ${normalizedEnvironmentType}`}
+    >
+      {normalizedEnvironmentType}
     </span>
   );
 }
@@ -380,6 +601,7 @@ export default function HomePage() {
   const [isCatalogDownloading, setIsCatalogDownloading] = useState(false);
   const [isCatalogDeleting, setIsCatalogDeleting] = useState(false);
   const [openingMetadataEntryId, setOpeningMetadataEntryId] = useState<string | null>(null);
+  const [deletingMetadataEntryId, setDeletingMetadataEntryId] = useState<string | null>(null);
   const [isMetadataJsonDownloading, setIsMetadataJsonDownloading] = useState(false);
   const [isConnectionSaving, setIsConnectionSaving] = useState(false);
   const [isConnectionDeleting, setIsConnectionDeleting] = useState(false);
@@ -543,6 +765,44 @@ export default function HomePage() {
       setStatusMessage(`Downloaded metadata JSON for ${metadataPreview.catalogPath}.`);
     } finally {
       setIsMetadataJsonDownloading(false);
+    }
+  }
+
+  async function handleDeleteCatalogMetadataHistoryEntry(
+    projectCode: string,
+    catalogPath: string,
+    historyEntryId: string
+  ) {
+    const deletedEntry =
+      selectedCatalog?.metadataHistory.find((entry) => entry.id === historyEntryId) ?? null;
+
+    setDeletingMetadataEntryId(historyEntryId);
+
+    try {
+      const nextProjectState = await window.electronAPI.deleteCatalogMetadataHistoryEntry(
+        projectCode,
+        catalogPath,
+        historyEntryId
+      );
+
+      setProjectState(nextProjectState);
+
+      if (
+        deletedEntry &&
+        metadataPreview &&
+        metadataPreview.projectCode === projectCode &&
+        metadataPreview.catalogPath === catalogPath &&
+        metadataPreview.fileName === deletedEntry.fileName &&
+        metadataPreview.downloadedAt === deletedEntry.completedAt
+      ) {
+        closeMetadataPreview();
+      }
+
+      setStatusMessage(`Deleted a metadata history entry for ${catalogPath}.`);
+    } catch (error) {
+      setStatusMessage(getErrorMessage(error));
+    } finally {
+      setDeletingMetadataEntryId(null);
     }
   }
 
@@ -1629,41 +1889,18 @@ export default function HomePage() {
       return [
         { label: "Project", value: "Not selected" },
         { label: "Saved connections", value: 0 },
-        { label: "Catalogs", value: 0 },
-        { label: "Explorer node", value: "Unavailable" },
-        { label: "Mode", value: "Idle" }
+        { label: "Catalogs", value: 0 }
       ];
     }
 
-    const metrics: MetricItem[] = [
-      { label: "Project", value: selectedProject.code },
-      { label: "Saved connections", value: selectedProject.connections.length },
-      { label: "Catalogs", value: selectedProjectCatalogCount },
-      {
-        label: "Explorer node",
-        value: isCatalogSelected
-          ? "Catalog item"
-          : isCatalogsView
-          ? "Catalogs branch"
-          : selectedExplorerSection === "connection"
-            ? "Connection item"
-            : selectedExplorerSection === "connections"
-              ? "Connections branch"
-              : "Project root"
-      },
-      {
-        label: "Mode",
-        value: selectedCatalog
-          ? "Download catalog metadata"
-          : isCatalogsView
-            ? "Browse catalogs"
-          : selectedConnection
-            ? "Inspect saved connection"
-            : selectedExplorerSection === "project"
-              ? "Project overview"
-              : "Browse connections"
-      }
-    ];
+    const metrics: MetricItem[] = [{ label: "Project", value: selectedProject.code }];
+    const shouldShowSavedCounts =
+      selectedExplorerSection !== "connection" && selectedExplorerSection !== "catalog";
+
+    if (shouldShowSavedCounts) {
+      metrics.push({ label: "Saved connections", value: selectedProject.connections.length });
+      metrics.push({ label: "Catalogs", value: selectedProjectCatalogCount });
+    }
 
     if (selectedCatalog) {
       metrics.push({
@@ -1723,7 +1960,6 @@ export default function HomePage() {
                 onClick={() => setIsExplorerActionMenuOpen((current) => !current)}
                 type="button"
               >
-                <AppIcon className="button-icon" kind="manage" />
                 Actions
               </button>
 
@@ -1738,7 +1974,6 @@ export default function HomePage() {
                       role="menuitem"
                       type="button"
                     >
-                      {action.icon ? <AppIcon className="button-icon" kind={action.icon} /> : null}
                       {action.label}
                     </button>
                   ))}
@@ -1948,12 +2183,9 @@ export default function HomePage() {
               <p className="section-label">Tools</p>
               <button className="explorer-tool-card" onClick={openComparePage} type="button">
                 <span className="explorer-tool-heading">
-                  <AppIcon className="explorer-tool-icon" kind="tool" />
-                  <span className="explorer-tool-title">Compare bundles</span>
+                  <span className="explorer-tool-title">Compare Catalogs</span>
                 </span>
-                <span className="explorer-tool-description">
-                  Compare two bundle folders side by side and review the differences.
-                </span>
+                <span className="explorer-tool-description">Upload and compare two Catalogs.</span>
               </button>
               <button
                 className="explorer-tool-card"
@@ -1962,7 +2194,6 @@ export default function HomePage() {
                 type="button"
               >
                 <span className="explorer-tool-heading">
-                  <AppIcon className="explorer-tool-icon" kind="catalog" />
                   <span className="explorer-tool-title">Download catalog</span>
                 </span>
                 <span className="explorer-tool-description">
@@ -1989,15 +2220,13 @@ export default function HomePage() {
                   onClick={downloadMetadataPreviewJson}
                   type="button"
                 >
-                  {isMetadataJsonDownloading ? "Downloading..." : "Download JSON"}
+                  {isMetadataJsonDownloading ? "Downloading..." : "Download"}
                 </button>
-                <button
-                  className="neutral-button compact-button"
+                <IconOnlyButton
+                  kind="close-square"
+                  label="Close metadata preview"
                   onClick={closeMetadataPreview}
-                  type="button"
-                >
-                  Close
-                </button>
+                />
               </div>
 
               <h2 className="panel-heading">{getCatalogDisplayName(metadataPreview.catalogPath)} Metadata</h2>
@@ -2089,7 +2318,6 @@ export default function HomePage() {
                         onClick={action.onClick}
                         type="button"
                       >
-                        {action.icon ? <AppIcon className="button-icon" kind={action.icon} /> : null}
                         {action.label}
                       </button>
                     ))}
@@ -2100,7 +2328,13 @@ export default function HomePage() {
                   {editorFocusMetrics.map((metric) => (
                     <div className="meta-item" key={metric.label}>
                       <span className="meta-label">{metric.label}</span>
-                      <span className="meta-value">{metric.value}</span>
+                      <span className="meta-value">
+                        {metric.label === "Environment" && isEnvironmentType(metric.value) ? (
+                          <EnvironmentBadge environmentType={metric.value} />
+                        ) : (
+                          metric.value
+                        )}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -2108,52 +2342,76 @@ export default function HomePage() {
                 {selectedCatalog ? (
                   <>
                     <div className="editor-focus-divider" />
-                  <section className="editor-focus-history" aria-label="Metadata history">
-                    <h3 className="section-label">History</h3>
+                    <section className="editor-focus-history" aria-label="Metadata history">
+                      <h3 className="section-label">History</h3>
 
-                    {selectedCatalogHistory.length > 0 ? (
-                      <div className="editor-focus-history-list">
-                        {selectedCatalogHistory.map((entry) => (
-                          <article className="editor-focus-history-item" key={entry.id}>
-                            <div className="editor-focus-history-item-top">
-                              <span className={`history-status-pill is-${entry.status}`}>
-                                {entry.status === "success" ? "Success" : "Failed"}
-                              </span>
-                              <button
-                                className="secondary-button compact-button history-open-button"
-                                disabled={
-                                  !selectedProject ||
-                                  !entry.tempFilePath ||
-                                  (openingMetadataEntryId !== null && openingMetadataEntryId !== entry.id)
-                                }
-                                onClick={() => {
-                                  if (selectedProject) {
-                                    void openCachedCatalogMetadata(
-                                      selectedProject.code,
-                                      selectedCatalog.path,
-                                      entry.id
-                                    );
-                                  }
-                                }}
-                                type="button"
-                              >
-                                {openingMetadataEntryId === entry.id ? "Opening..." : "Open"}
-                              </button>
-                            </div>
-                            <div className="editor-focus-history-meta">
-                              <span>{formatTimestamp(entry.completedAt)}</span>
-                              <span>{entry.environmentType ?? "Unavailable"}</span>
-                            </div>
-                          </article>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="editor-focus-history-empty">
-                        No metadata download attempts recorded for this catalog.
-                      </p>
-                    )}
-                    <p className="editor-focus-history-note">Showing the latest 10 entries.</p>
-                  </section>
+                      {selectedCatalogHistory.length > 0 ? (
+                        <div className="editor-focus-history-list">
+                          {selectedCatalogHistory.map((entry) => (
+                            <article className="editor-focus-history-item" key={entry.id}>
+                              <div className="editor-focus-history-item-top">
+                                <span className={`history-status-pill is-${entry.status}`}>
+                                  {entry.status === "success" ? "Success" : "Failed"}
+                                </span>
+                                <div className="history-action-group">
+                                  <button
+                                    className="secondary-button compact-button history-open-button"
+                                    disabled={
+                                      !selectedProject ||
+                                      !entry.tempFilePath ||
+                                      deletingMetadataEntryId !== null ||
+                                      (openingMetadataEntryId !== null &&
+                                        openingMetadataEntryId !== entry.id)
+                                    }
+                                    onClick={() => {
+                                      if (selectedProject) {
+                                        void openCachedCatalogMetadata(
+                                          selectedProject.code,
+                                          selectedCatalog.path,
+                                          entry.id
+                                        );
+                                      }
+                                    }}
+                                    type="button"
+                                  >
+                                    {openingMetadataEntryId === entry.id ? "Opening..." : "Open"}
+                                  </button>
+                                  <IconOnlyButton
+                                    className="history-delete-button"
+                                    disabled={
+                                      !selectedProject ||
+                                      openingMetadataEntryId !== null ||
+                                      deletingMetadataEntryId !== null
+                                    }
+                                    kind="trash"
+                                    label="Delete history entry"
+                                    onClick={() => {
+                                      if (selectedProject) {
+                                        void handleDeleteCatalogMetadataHistoryEntry(
+                                          selectedProject.code,
+                                          selectedCatalog.path,
+                                          entry.id
+                                        );
+                                      }
+                                    }}
+                                    tone="danger"
+                                  />
+                                </div>
+                              </div>
+                              <div className="editor-focus-history-meta">
+                                <span>{formatTimestamp(entry.completedAt)}</span>
+                                <EnvironmentBadge environmentType={entry.environmentType} />
+                              </div>
+                            </article>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="editor-focus-history-empty">
+                          No metadata download attempts recorded for this catalog.
+                        </p>
+                      )}
+                      <p className="editor-focus-history-note">Showing the latest 10 entries.</p>
+                    </section>
                   </>
                 ) : null}
 
@@ -2167,7 +2425,6 @@ export default function HomePage() {
                         onClick={action.onClick}
                         type="button"
                       >
-                        {action.icon ? <AppIcon className="button-icon" kind={action.icon} /> : null}
                         {action.label}
                       </button>
                     ))}
@@ -2200,14 +2457,12 @@ export default function HomePage() {
                 <h4>{connectionDialogMode === "edit" ? "Edit connection" : "Add connection"}</h4>
               </div>
 
-              <button
-                className="neutral-button compact-button"
+              <IconOnlyButton
                 disabled={isConnectionSaving || isConnectionDeleting}
+                kind="close-square"
+                label="Close connection dialog"
                 onClick={closeConnectionDialog}
-                type="button"
-              >
-                Close
-              </button>
+              />
             </div>
 
             <form className="form-grid connection-form connection-modal-form" onSubmit={handleSaveConnection}>
@@ -2349,14 +2604,12 @@ export default function HomePage() {
                 <h4>Add catalog path</h4>
               </div>
 
-              <button
-                className="neutral-button compact-button"
+              <IconOnlyButton
                 disabled={isCatalogSaving}
+                kind="close-square"
+                label="Close add catalog dialog"
                 onClick={closeCatalogDialog}
-                type="button"
-              >
-                Close
-              </button>
+              />
             </div>
 
             {catalogDialogErrorMessage ? <p className="error-banner">{catalogDialogErrorMessage}</p> : null}
@@ -2432,20 +2685,20 @@ export default function HomePage() {
           >
             <div className="dialog-header">
               <div className="dialog-title">
-                <span className="icon-badge">
-                  <AppIcon kind={catalogDownloadMode === "catalog" ? "catalog" : "open"} />
-                </span>
+                {catalogDownloadMode === "catalog" ? null : (
+                  <span className="icon-badge">
+                    <AppIcon kind="open" />
+                  </span>
+                )}
                 <h4>{catalogDownloadDialogTitle}</h4>
               </div>
 
-              <button
-                className="neutral-button compact-button"
+              <IconOnlyButton
                 disabled={isCatalogDownloading}
+                kind="close-square"
+                label="Close catalog download dialog"
                 onClick={closeCatalogDownloadDialog}
-                type="button"
-              >
-                Close
-              </button>
+              />
             </div>
 
             <form className="form-grid connection-form connection-modal-form" onSubmit={handleDownloadCatalogMetadata}>
@@ -2545,9 +2798,7 @@ export default function HomePage() {
                 </h4>
               </div>
 
-              <button className="neutral-button compact-button" onClick={closeDialog} type="button">
-                Close
-              </button>
+              <IconOnlyButton kind="close-square" label="Close project dialog" onClick={closeDialog} />
             </div>
 
             {dialogErrorMessage ? <p className="error-banner">{dialogErrorMessage}</p> : null}
@@ -2603,7 +2854,6 @@ export default function HomePage() {
 
                 <div className="dialog-actions">
                   <button className="primary-button" type="submit" disabled={isBusy}>
-                    <AppIcon className="button-icon" kind={dialogMode === "edit-project" ? "manage" : "add"} />
                     {isBusy
                       ? dialogMode === "edit-project"
                         ? "Saving..."
@@ -2663,7 +2913,6 @@ export default function HomePage() {
 
                   <div className="dialog-actions">
                     <button className="primary-button" onClick={() => handleOpenProject()} disabled={isBusy}>
-                      <AppIcon className="button-icon" kind="open" />
                       {isBusy ? "Opening..." : "Open project"}
                     </button>
                     <button className="neutral-button" onClick={closeDialog} type="button">
@@ -2690,7 +2939,6 @@ export default function HomePage() {
                     }}
                     type="button"
                   >
-                    <AppIcon className="button-icon" kind="add" />
                     Add project
                   </button>
                 </div>
@@ -2721,7 +2969,6 @@ export default function HomePage() {
                           onClick={() => handleOpenProject(project.code)}
                           type="button"
                         >
-                          <AppIcon className="button-icon" kind="open" />
                           Open
                         </button>
                         <button
