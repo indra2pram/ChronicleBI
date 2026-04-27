@@ -66,6 +66,8 @@ interface XmlInspectorState {
   afterValue: string;
 }
 
+type XmlInspectorPayload = XmlInspectorState;
+
 function isValidCatalogBundle(file: File) {
   return file.name.toLowerCase().endsWith(".xdrz");
 }
@@ -90,6 +92,145 @@ function getXmlLikeValue(value: string) {
   return /^<\?xml\b|^<[A-Za-z_][\w:.-]*(\s|\/?>)|^<!--/.test(normalizedValue) ? normalizedValue : "";
 }
 
+function tokenizeXml(value: string) {
+  const tokens: string[] = [];
+  let index = 0;
+
+  while (index < value.length) {
+    if (value.startsWith("<!--", index)) {
+      const endIndex = value.indexOf("-->", index + 4);
+
+      if (endIndex === -1) {
+        tokens.push(value.slice(index));
+        break;
+      }
+
+      tokens.push(value.slice(index, endIndex + 3));
+      index = endIndex + 3;
+      continue;
+    }
+
+    if (value.startsWith("<![CDATA[", index)) {
+      const endIndex = value.indexOf("]]>", index + 9);
+
+      if (endIndex === -1) {
+        tokens.push(value.slice(index));
+        break;
+      }
+
+      tokens.push(value.slice(index, endIndex + 3));
+      index = endIndex + 3;
+      continue;
+    }
+
+    if (value.startsWith("<?", index)) {
+      const endIndex = value.indexOf("?>", index + 2);
+
+      if (endIndex === -1) {
+        tokens.push(value.slice(index));
+        break;
+      }
+
+      tokens.push(value.slice(index, endIndex + 2));
+      index = endIndex + 2;
+      continue;
+    }
+
+    if (value[index] === "<") {
+      let cursor = index + 1;
+      let activeQuote: '"' | "'" | null = null;
+
+      while (cursor < value.length) {
+        const currentCharacter = value[cursor];
+
+        if (activeQuote) {
+          if (currentCharacter === activeQuote) {
+            activeQuote = null;
+          }
+        } else if (currentCharacter === '"' || currentCharacter === "'") {
+          activeQuote = currentCharacter;
+        } else if (currentCharacter === ">") {
+          cursor += 1;
+          break;
+        }
+
+        cursor += 1;
+      }
+
+      tokens.push(value.slice(index, cursor));
+      index = cursor;
+      continue;
+    }
+
+    const nextTagIndex = value.indexOf("<", index);
+
+    if (nextTagIndex === -1) {
+      tokens.push(value.slice(index));
+      break;
+    }
+
+    tokens.push(value.slice(index, nextTagIndex));
+    index = nextTagIndex;
+  }
+
+  return tokens;
+}
+
+function formatXmlForDisplay(value: string) {
+  const xmlValue = getXmlLikeValue(value);
+
+  if (!xmlValue) {
+    return "";
+  }
+
+  try {
+    const normalizedValue = xmlValue.replace(/\r\n?/g, "\n").trim();
+    const tokens = tokenizeXml(normalizedValue);
+    const lines: string[] = [];
+    let indentLevel = 0;
+
+    tokens.forEach((token) => {
+      const trimmedToken = token.trim();
+
+      if (!trimmedToken) {
+        return;
+      }
+
+      if (trimmedToken.startsWith("</")) {
+        indentLevel = Math.max(indentLevel - 1, 0);
+        lines.push(`${"  ".repeat(indentLevel)}${trimmedToken}`);
+        return;
+      }
+
+      if (trimmedToken.startsWith("<")) {
+        lines.push(`${"  ".repeat(indentLevel)}${trimmedToken}`);
+
+        if (
+          !trimmedToken.startsWith("<?") &&
+          !trimmedToken.startsWith("<!") &&
+          !trimmedToken.endsWith("/>")
+        ) {
+          indentLevel += 1;
+        }
+
+        return;
+      }
+
+      trimmedToken
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .forEach((line) => {
+          lines.push(`${"  ".repeat(indentLevel)}${line}`);
+        });
+    });
+
+    return lines.length > 0 ? lines.join("\n") : normalizedValue;
+  } catch (_error) {
+    return xmlValue;
+  }
+}
+
 function splitCodeLines(value: string) {
   return value.replace(/\r\n?/g, "\n").split("\n");
 }
@@ -101,7 +242,7 @@ function CodePane({
   heading: string;
   value: string;
 }>) {
-  const codeValue = getXmlLikeValue(value);
+  const codeValue = formatXmlForDisplay(value);
 
   return (
     <section className={styles.xmlPane}>
@@ -131,12 +272,14 @@ function CategorySection({
   heading,
   note,
   category,
-  viewMode
+  viewMode,
+  onOpenXmlInspector
 }: Readonly<{
   heading: string;
   note: string;
   category: CategoryComparison;
   viewMode: ComparisonViewMode;
+  onOpenXmlInspector: (payload: XmlInspectorPayload) => void;
 }>) {
   const visibleEntries =
     viewMode === "changed"
@@ -167,31 +310,67 @@ function CategorySection({
       {visibleEntries.length > 0 ? (
         <div className={styles.tableWrap}>
           <table className={styles.resultTable}>
+            <colgroup>
+              <col className={styles.categoryFileColumn} />
+              <col className={styles.statusColumn} />
+              <col className={styles.sizeColumn} />
+              <col className={styles.sizeColumn} />
+              <col className={styles.deltaColumn} />
+              <col className={styles.inspectColumn} />
+            </colgroup>
             <thead>
               <tr>
                 <th>File</th>
-                <th>Status</th>
-                <th>Before</th>
-                <th>After</th>
-                <th>Line delta</th>
+                <th className={styles.statusCell}>Status</th>
+                <th className={styles.compactCell}>Before</th>
+                <th className={styles.compactCell}>After</th>
+                <th className={styles.deltaCell}>Line delta</th>
+                <th className={styles.inspectColumn}>Inspect</th>
               </tr>
             </thead>
             <tbody>
-              {visibleEntries.map((entry) => (
-                <tr key={entry.path}>
-                  <td className={styles.pathCell}>{entry.path}</td>
-                  <td>
-                    <span className={`${styles.statusChip} ${statusClassName(entry.status)}`}>
-                      {toStatusLabel(entry.status)}
-                    </span>
-                  </td>
-                  <td>{entry.beforeSize ? formatBytes(entry.beforeSize) : "-"}</td>
-                  <td>{entry.afterSize ? formatBytes(entry.afterSize) : "-"}</td>
-                  <td>
-                    +{entry.lineDelta.added} / -{entry.lineDelta.removed} / ~{entry.lineDelta.changed}
-                  </td>
-                </tr>
-              ))}
+              {visibleEntries.map((entry) => {
+                const canInspectXml =
+                  entry.status !== "unchanged" &&
+                  entry.status !== "removed" &&
+                  Boolean(getXmlLikeValue(entry.beforeContent) || getXmlLikeValue(entry.afterContent));
+
+                return (
+                  <tr key={entry.path}>
+                    <td className={styles.pathCell}>{entry.path}</td>
+                    <td className={styles.statusCell}>
+                      <span className={`${styles.statusChip} ${statusClassName(entry.status)}`}>
+                        {toStatusLabel(entry.status)}
+                      </span>
+                    </td>
+                    <td className={styles.compactCell}>{entry.beforeSize ? formatBytes(entry.beforeSize) : "-"}</td>
+                    <td className={styles.compactCell}>{entry.afterSize ? formatBytes(entry.afterSize) : "-"}</td>
+                    <td className={styles.deltaCell}>
+                      +{entry.lineDelta.added} / -{entry.lineDelta.removed} / ~{entry.lineDelta.changed}
+                    </td>
+                    <td className={styles.inspectColumn}>
+                      {canInspectXml ? (
+                        <button
+                          className={`secondary-button compact-button ${styles.inspectAction}`}
+                          onClick={() =>
+                            onOpenXmlInspector({
+                              heading: entry.path,
+                              path: entry.path,
+                              beforeValue: entry.beforeContent,
+                              afterValue: entry.afterContent
+                            })
+                          }
+                          type="button"
+                        >
+                          View XML
+                        </button>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -248,37 +427,46 @@ function TokenSection({
       {visibleEntries.length > 0 ? (
         <div className={styles.tableWrap}>
           <table className={styles.resultTable}>
+            <colgroup>
+              <col className={styles.nameColumn} />
+              <col className={styles.statusColumn} />
+              <col className={styles.pathColumn} />
+              <col className={styles.previewColumn} />
+              <col className={styles.previewColumn} />
+              <col className={styles.inspectColumn} />
+            </colgroup>
             <thead>
               <tr>
                 <th>Name</th>
-                <th>Status</th>
+                <th className={styles.statusCell}>Status</th>
                 <th>Path</th>
                 <th>Before</th>
                 <th>After</th>
-                <th>Inspect</th>
+                <th className={styles.inspectColumn}>Inspect</th>
               </tr>
             </thead>
             <tbody>
               {visibleEntries.map((entry) => {
-                const canInspectXml = Boolean(
-                  getXmlLikeValue(entry.beforeValue) || getXmlLikeValue(entry.afterValue)
-                );
+                const canInspectXml =
+                  entry.status !== "unchanged" &&
+                  entry.status !== "removed" &&
+                  Boolean(getXmlLikeValue(entry.beforeValue) || getXmlLikeValue(entry.afterValue));
 
                 return (
                   <tr key={entry.id}>
-                    <td>{entry.name}</td>
-                    <td>
+                    <td className={styles.nameCell}>{entry.name}</td>
+                    <td className={styles.statusCell}>
                       <span className={`${styles.statusChip} ${statusClassName(entry.status)}`}>
                         {toStatusLabel(entry.status)}
                       </span>
                     </td>
                     <td className={styles.pathCell}>{entry.path}</td>
-                    <td>{entry.beforePreview || "-"}</td>
-                    <td>{entry.afterPreview || "-"}</td>
-                    <td>
+                    <td className={styles.previewCell}>{entry.beforePreview || "-"}</td>
+                    <td className={styles.previewCell}>{entry.afterPreview || "-"}</td>
+                    <td className={styles.inspectColumn}>
                       {canInspectXml ? (
                         <button
-                          className="secondary-button compact-button"
+                          className={`secondary-button compact-button ${styles.inspectAction}`}
                           onClick={() => onOpenXmlInspector(entry)}
                           type="button"
                         >
@@ -403,6 +591,10 @@ export default function ComparePage() {
       beforeValue: entry.beforeValue,
       afterValue: entry.afterValue
     });
+  }
+
+  function openXmlInspectorWithPayload(payload: XmlInspectorPayload) {
+    setXmlInspector(payload);
   }
 
   function closeXmlInspector() {
@@ -535,12 +727,14 @@ export default function ComparePage() {
             note="Files matched by model-oriented names, paths, or content markers."
             category={result.categories.dataModel}
             viewMode={viewMode}
+            onOpenXmlInspector={openXmlInspectorWithPayload}
           />
           <CategorySection
             heading="Catalog changes"
             note="Files matched by catalog-oriented names, paths, or content markers."
             category={result.categories.catalogs}
             viewMode={viewMode}
+            onOpenXmlInspector={openXmlInspectorWithPayload}
           />
           <TokenSection
             heading="Query changes"

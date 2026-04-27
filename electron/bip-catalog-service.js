@@ -1,6 +1,4 @@
 const crypto = require("node:crypto");
-const fs = require("node:fs/promises");
-const path = require("node:path");
 const { readProjectState } = require("./project-store");
 const JSZip = require("jszip");
 
@@ -1052,59 +1050,6 @@ function normalizeReportPathForFileName(reportPath) {
   return noExtension.replace(/[^a-zA-Z0-9_-]+/g, "_").slice(0, 60) || "catalog-object";
 }
 
-function sanitizeFolderSegment(segment) {
-  const sanitized = String(segment ?? "")
-    .trim()
-    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, "_")
-    .replace(/\.+$/g, "");
-
-  return sanitized || "_";
-}
-
-function getReportPathFolderSegments(reportPath) {
-  const rawSegments = String(reportPath ?? "")
-    .split("/")
-    .map((segment) => segment.trim())
-    .filter(Boolean);
-
-  if (rawSegments.length === 0) {
-    return ["root"];
-  }
-
-  return rawSegments.map((segment) => sanitizeFolderSegment(segment));
-}
-
-function resolveProjectRootDirectory() {
-  const cwd = process.cwd();
-
-  if (cwd && cwd.trim()) {
-    return cwd;
-  }
-
-  return __dirname;
-}
-
-async function persistMetadataJsonInProjectFolder(reportPath, fileName, metadata) {
-  const projectRoot = resolveProjectRootDirectory();
-  const bipJsonRoot = path.join(projectRoot, "BIPJSON");
-  const reportFolderSegments = getReportPathFolderSegments(reportPath);
-  const reportFolderPath = path.join(bipJsonRoot, ...reportFolderSegments);
-  const metadataJsonPath = path.join(reportFolderPath, sanitizeFolderSegment(fileName));
-  const metadataJson = JSON.stringify(metadata, null, 2);
-
-  await fs.mkdir(reportFolderPath, {
-    recursive: true
-  });
-  await fs.writeFile(metadataJsonPath, metadataJson, "utf8");
-
-  return {
-    projectRoot,
-    bipJsonRoot,
-    reportFolderPath,
-    metadataJsonPath
-  };
-}
-
 function buildRootPayloadName(reportPath, payloadFormat) {
   const candidateName = getBaseName(reportPath);
 
@@ -1402,11 +1347,6 @@ async function downloadBipObject(projectCode, connectionName, reportPath) {
     response.downloadObjectReturn,
     normalizedReportPath
   );
-  const savedLocation = await persistMetadataJsonInProjectFolder(
-    normalizedReportPath,
-    metadataResult.fileName,
-    metadataResult.metadata
-  );
   const result = {
     requestedAt: new Date().toISOString(),
     projectCode: project.code,
@@ -1423,10 +1363,7 @@ async function downloadBipObject(projectCode, connectionName, reportPath) {
     payloadPreview: response.payloadPreview,
     responseSnippet: response.responseSnippet,
     metadataFileName: metadataResult.fileName,
-    metadata: metadataResult.metadata,
-    metadataSavedPath: savedLocation.metadataJsonPath,
-    metadataSavedFolder: savedLocation.reportFolderPath,
-    bipJsonRootFolder: savedLocation.bipJsonRoot
+    metadata: metadataResult.metadata
   };
 
   return result;

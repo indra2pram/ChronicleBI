@@ -144,9 +144,7 @@ export default function BipDownloadPage() {
       );
 
       setResult(nextResult);
-      setStatusMessage(
-        "downloadObject() finished. Metadata JSON was saved under BIPJSON and is also ready to download."
-      );
+      setStatusMessage("downloadObject() finished. Metadata JSON is ready to download.");
       console.log(nextResult.downloadObjectReturn);
     } catch (error) {
       setResult(null);
@@ -337,18 +335,6 @@ export default function BipDownloadPage() {
             <div className={styles.metaItem}>
               <span className="meta-label">Metadata file</span>
               <span>{result.metadataFileName}</span>
-            </div>
-            <div className={styles.metaItem}>
-              <span className="meta-label">BIPJSON root folder</span>
-              <span>{result.bipJsonRootFolder}</span>
-            </div>
-            <div className={styles.metaItem}>
-              <span className="meta-label">Catalog metadata folder</span>
-              <span>{result.metadataSavedFolder}</span>
-            </div>
-            <div className={styles.metaItem}>
-              <span className="meta-label">Saved metadata JSON path</span>
-              <span>{result.metadataSavedPath}</span>
             </div>
           </div>
 

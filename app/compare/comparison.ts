@@ -36,6 +36,8 @@ export interface FileComparisonEntry {
   status: ComparisonStatus;
   beforeSize: number;
   afterSize: number;
+  beforeContent: string;
+  afterContent: string;
   lineDelta: FileLineDelta;
 }
 
@@ -95,6 +97,7 @@ interface ExtractedToken {
   path: string;
   name: string;
   value: string;
+  rawValue: string;
   preview: string;
 }
 
@@ -413,14 +416,15 @@ function stripCdata(value: string) {
 }
 
 function extractQueriesFromFile(file: ParsedBundleFile) {
-  const queryCandidates: Array<{ name: string; value: string }> = [];
+  const queryCandidates: Array<{ name: string; value: string; rawValue: string }> = [];
   const extension = getExtension(file.path);
   let index = 0;
 
   if (extension === ".sql" || extension === ".qry" || extension === ".query") {
     queryCandidates.push({
       name: "statement-1",
-      value: normalizeQuery(file.content)
+      value: normalizeQuery(file.content),
+      rawValue: file.content
     });
   }
 
@@ -435,7 +439,8 @@ function extractQueriesFromFile(file: ParsedBundleFile) {
     if (cleaned) {
       queryCandidates.push({
         name: rawName || `xml-query-${index}`,
-        value: cleaned
+        value: cleaned,
+        rawValue: xmlMatch[3].trim()
       });
     }
 
@@ -452,28 +457,37 @@ function extractQueriesFromFile(file: ParsedBundleFile) {
     statements.forEach((statement, statementIndex) => {
       queryCandidates.push({
         name: `statement-${statementIndex + 1}`,
-        value: statement
+        value: statement,
+        rawValue: statement
       });
     });
   }
 
-  const deduped = new Map<string, string>();
+  const deduped = new Map<string, { value: string; rawValue: string }>();
 
   queryCandidates.forEach((candidate) => {
     if (!candidate.value) {
       return;
     }
 
-    deduped.set(candidate.name, candidate.value);
+    deduped.set(candidate.name, {
+      value: candidate.value,
+      rawValue: candidate.rawValue
+    });
   });
 
   return [...deduped.entries()].map(([name, value]) => ({
     name,
-    value
+    value: value.value,
+    rawValue: value.rawValue
   }));
 }
 
-function flattenJsonValues(input: unknown, prefix = "", output: Array<{ name: string; value: string }> = []) {
+function flattenJsonValues(
+  input: unknown,
+  prefix = "",
+  output: Array<{ name: string; value: string; rawValue: string }> = []
+) {
   if (Array.isArray(input)) {
     input.forEach((value, index) => {
       flattenJsonValues(value, `${prefix}[${index}]`, output);
@@ -491,14 +505,15 @@ function flattenJsonValues(input: unknown, prefix = "", output: Array<{ name: st
 
   output.push({
     name: prefix || "value",
-    value: String(input ?? "")
+    value: String(input ?? ""),
+    rawValue: String(input ?? "")
   });
 
   return output;
 }
 
 function extractPropertiesFromFile(file: ParsedBundleFile) {
-  const entries: Array<{ name: string; value: string }> = [];
+  const entries: Array<{ name: string; value: string; rawValue: string }> = [];
   const extension = getExtension(file.path);
 
   if (extension === ".json") {
@@ -520,7 +535,8 @@ function extractPropertiesFromFile(file: ParsedBundleFile) {
     if (!value.startsWith("//") && !key.startsWith("#") && !key.startsWith(";")) {
       entries.push({
         name: key,
-        value
+        value,
+        rawValue: value
       });
     }
 
@@ -535,27 +551,32 @@ function extractPropertiesFromFile(file: ParsedBundleFile) {
     const key = xmlMatch[2].trim();
     const value = (xmlMatch[3] || xmlMatch[4] || "").trim();
 
-    entries.push({
-      name: key,
-      value
-    });
+      entries.push({
+        name: key,
+        value,
+        rawValue: value
+      });
 
     xmlMatch = xmlPropertyRegex.exec(file.content);
   }
 
-  const deduped = new Map<string, string>();
+  const deduped = new Map<string, { value: string; rawValue: string }>();
 
   entries.forEach((entry) => {
     if (!entry.name) {
       return;
     }
 
-    deduped.set(entry.name, entry.value);
+    deduped.set(entry.name, {
+      value: entry.value,
+      rawValue: entry.rawValue
+    });
   });
 
   return [...deduped.entries()].map(([name, value]) => ({
     name,
-    value
+    value: value.value,
+    rawValue: value.rawValue
   }));
 }
 
@@ -597,6 +618,7 @@ function collectQueryTokens(files: ParsedBundleFile[]) {
         path: file.path,
         name: query.name,
         value: normalizedValue,
+        rawValue: query.rawValue,
         preview: preview(normalizedValue)
       });
     });
@@ -622,6 +644,7 @@ function collectPropertyTokens(files: ParsedBundleFile[]) {
         path: file.path,
         name: property.name,
         value: normalizedValue,
+        rawValue: property.rawValue,
         preview: preview(normalizedValue)
       });
     });
@@ -648,7 +671,7 @@ function compareTokens(beforeMap: Map<string, ExtractedToken>, afterMap: Map<str
         beforePreview: "",
         afterPreview: after.preview,
         beforeValue: "",
-        afterValue: after.value
+        afterValue: after.rawValue
       };
     }
 
@@ -660,7 +683,7 @@ function compareTokens(beforeMap: Map<string, ExtractedToken>, afterMap: Map<str
         status: "removed",
         beforePreview: before.preview,
         afterPreview: "",
-        beforeValue: before.value,
+        beforeValue: before.rawValue,
         afterValue: ""
       };
     }
@@ -674,8 +697,8 @@ function compareTokens(beforeMap: Map<string, ExtractedToken>, afterMap: Map<str
       status,
       beforePreview: before?.preview || "",
       afterPreview: after?.preview || "",
-      beforeValue: before?.value || "",
-      afterValue: after?.value || ""
+      beforeValue: before?.rawValue || "",
+      afterValue: after?.rawValue || ""
     };
   });
 
@@ -718,6 +741,8 @@ function compareFiles(left: ParsedBundleFile[], right: ParsedBundleFile[]): File
         status: "added" as const,
         beforeSize: 0,
         afterSize: after.size,
+        beforeContent: "",
+        afterContent: after.content,
         lineDelta: {
           added: after.content.split("\n").length,
           removed: 0,
@@ -733,6 +758,8 @@ function compareFiles(left: ParsedBundleFile[], right: ParsedBundleFile[]): File
         status: "removed" as const,
         beforeSize: before.size,
         afterSize: 0,
+        beforeContent: before.content,
+        afterContent: "",
         lineDelta: {
           added: 0,
           removed: before.content.split("\n").length,
@@ -749,6 +776,8 @@ function compareFiles(left: ParsedBundleFile[], right: ParsedBundleFile[]): File
       status,
       beforeSize: before?.size ?? 0,
       afterSize: after?.size ?? 0,
+      beforeContent: before?.content ?? "",
+      afterContent: after?.content ?? "",
       lineDelta: createLineDelta(before?.content ?? "", after?.content ?? "")
     };
   });

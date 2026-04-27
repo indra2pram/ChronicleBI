@@ -97,9 +97,6 @@ interface BipDownloadResult {
   responseSnippet: string;
   metadataFileName: string;
   metadata: BipDownloadMetadata;
-  metadataSavedPath: string;
-  metadataSavedFolder: string;
-  bipJsonRootFolder: string;
   tempMetadataPath: string;
 }
 

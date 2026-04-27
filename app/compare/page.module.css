@@ -1,5 +1,6 @@
 .compareShell {
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 1rem;
   width: min(1520px, calc(100% - 1.5rem));
   height: calc(100vh - 1.5rem);
@@ -86,7 +87,9 @@
 
 .resultsStack {
   display: grid;
+  align-content: start;
   gap: 0.95rem;
+  height: 100%;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
@@ -229,7 +232,7 @@
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
 }
 
 .resultTable th,
@@ -240,6 +243,9 @@
   text-align: left;
   white-space: normal;
   overflow-wrap: anywhere;
+  word-break: break-word;
+  hyphens: auto;
+  min-width: 0;
 }
 
 .resultTable thead th {
@@ -249,12 +255,63 @@
   font-weight: 600;
 }
 
+.categoryFileColumn {
+  width: 31%;
+}
+
+.statusColumn {
+  width: 9%;
+}
+
+.sizeColumn {
+  width: 10%;
+}
+
+.deltaColumn {
+  width: 24%;
+}
+
+.nameColumn {
+  width: 13%;
+}
+
+.pathColumn {
+  width: 17%;
+}
+
+.previewColumn {
+  width: 26%;
+}
+
+.inspectColumn {
+  width: 8%;
+  white-space: nowrap;
+}
+
+.nameCell,
 .pathCell {
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
   font-size: 0.82rem;
   white-space: normal;
   word-break: break-word;
   overflow-wrap: anywhere;
+}
+
+.statusCell,
+.compactCell,
+.deltaCell {
+  white-space: normal;
+}
+
+.previewCell {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.inspectAction {
+  width: auto;
+  max-width: 100%;
 }
 
 .statusChip {

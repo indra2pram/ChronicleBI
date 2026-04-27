@@ -886,15 +886,25 @@ export default function HomePage() {
     async function hydrateApp() {
       try {
         const nextProjectState = await window.electronAPI.getProjectState();
+        const initialProjectCode =
+          nextProjectState.activeProjectCode ?? nextProjectState.projects[0]?.code ?? "";
 
         if (isCancelled) {
           return;
         }
 
         setProjectState(nextProjectState);
-        setSelectedProjectCode(nextProjectState.activeProjectCode ?? nextProjectState.projects[0]?.code ?? "");
-        setExpandedProjectCodes(
-          nextProjectState.activeProjectCode ? [nextProjectState.activeProjectCode] : []
+        setSelectedProjectCode(initialProjectCode);
+        setExpandedProjectCodes(initialProjectCode ? [initialProjectCode] : []);
+        setExpandedProjectFolders(
+          initialProjectCode
+            ? {
+                [initialProjectCode]: {
+                  connections: true,
+                  catalogs: true
+                }
+              }
+            : {}
         );
       } catch (error) {
         if (!isCancelled) {
@@ -1370,6 +1380,10 @@ export default function HomePage() {
     setSelectedCatalogPath(null);
     setSelectedExplorerSection("project");
     ensureProjectExpanded(projectCode);
+    updateExpandedFolderState(projectCode, {
+      connections: true,
+      catalogs: true
+    });
     setCatalogForm(defaultCatalogForm);
     setConnectionForm(defaultConnectionForm);
     setConnectionBanner({
